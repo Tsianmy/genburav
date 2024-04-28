@@ -1,0 +1,76 @@
+num_classes: 200
+model:
+  type: ResNet
+  block: Bottleneck
+  layers: [3, 4, 6, 3]
+  num_classes: ${num_classes}
+dataset_type: TinyImageNet
+train_transforms:
+- type: RandomResizedCrop
+  size: 64
+  scale: [0.08, 1.0]
+  ratio: [0.75, 1.33333]
+  interpolation: 0
+- type: RandomHorizontalFlip
+  p: 0.5
+val_transforms: []
+collate_keys: [img, gt_label]
+data_preprocessor:
+  type: ImgDataPreprocessor
+  minmax: false
+  mean: [123.675, 116.28, 103.53]
+  std: [58.395, 57.12, 57.375]
+  to_onehot: false
+  batch_aug:
+    type: RandMixUpCutMix
+    num_classes: ${num_classes}
+    switch_prob: 0.5
+    alpha_mixup: 1.0
+    alpha_cutmix: 1.0
+  num_classes: ${num_classes}
+data_root: data/tiny-imagenet
+train_dataloader:
+  batch_size: 256
+  num_workers: 4
+  sampler:
+    type: DistributedSampler
+    shuffle: true
+  collate_keys: ${collate_keys}
+  dataset:
+    type: ${dataset_type}
+    data_root: ${data_root}
+    transforms: ${train_transforms}
+    test_mode: false
+val_dataloader:
+  batch_size: 512
+  num_workers: 4
+  sampler:
+    type: DistributedSampler
+    shuffle: false
+  collate_keys:
+  - img
+  - gt_label
+  dataset:
+    type: ${dataset_type}
+    data_root: ${data_root}
+    transforms: ${val_transforms}
+    test_mode: true
+evaluator:
+  type: Evaluator
+  metrics:
+  - type: Accuracy
+    topk: [1, 5]
+train_epochs: 100
+optimizer:
+  type: SGD
+  lr: 0.1
+  momentum: 0.9
+  weight_decay: 0.0001
+scheduler:
+  type: CosineLR
+  t_initial: ${train_epochs}
+  lr_min: 1.0e-06
+  t_in_epochs: true
+log_interval: 65
+seed: 0
+use_amp: true

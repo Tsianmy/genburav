@@ -43,20 +43,36 @@ python run.py test --devs 0 --cfg outputs/simnet_cifar10/xxxxxx_xxxxxx/simnet_ci
 
 ### Train
 
-`python run.py train --devices <DEVICES> --cfg <CONFIG PATH> [--output_dir <OUTPUT>] [--search_opts OPTIONS [OPTIONS ...]]`
+```
+python run.py train --devices <DEVICES> --cfg <CONFIG PATH> [--output_dir <OUTPUT>] [--search_opts <OPTIONS> [<OPTIONS> ...]] [--resume <CHECKPOINT PATH>]
+```
 
 #### Example
 
-`python run.py train --devices 0,1 --cfg configs/simnet_cifar10.yaml`
+```
+python run.py train --devices 0,1 --cfg configs/simnet_cifar10.yaml
+```
 
 Search hyperparameters
 
-`python run.py train --devices 0,1 --cfg configs/simnet_cifar10.yaml --search_opts 'optimizer.lr=[0.02,0.05,0.1]' 'train_transforms[0].padding=2'`
+```
+python run.py train --devices 0,1 --cfg configs/simnet_cifar10.yaml --search_opts 'optimizer.lr=[0.02,0.05,0.1]' 'train_transforms[0].padding=2'
+```
+
+Resume from checkpoint
+
+```
+python run.py train --devices 0,1 --cfg outputs/x/simnet_cifar10.yaml --resume outputs/x/latest.ckpt
+```
 
 ### Test
 
-`python run.py test --devices <DEVICES> --cfg <CONFIG PATH> --checkpoint <CHECKPOINT PATH>`
+```
+python run.py test --devices <DEVICES> --cfg <CONFIG PATH> --checkpoint <CHECKPOINT PATH>
+```
 
 #### Example
 
-`python run.py test --devices 0,1 --cfg outputs/simnet_cifar10/xxxxxx_xxxxxx/simnet_cifar10.yaml --checkpoint outputs/simnet_cifar10/xxxxxx_xxxxxx/latest.ckpt`
+```
+python run.py test --devices 0,1 --cfg outputs/x/simnet_cifar10.yaml --checkpoint outputs/x/latest.ckpt
+```

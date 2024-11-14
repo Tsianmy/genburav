@@ -1,6 +1,6 @@
 # GenbuRav (Genbu Ravine)
 
-Pytorch learning.
+A Pytorch practice.
 
 ## Installation
 
@@ -44,13 +44,13 @@ python run.py test --devs 0 --cfg outputs/simnet_cifar10/xxxxxx_xxxxxx/simnet_ci
 ### Train
 
 ```
-python run.py train --devices <DEVICES> --cfg <CONFIG PATH> [--output_dir <OUTPUT>] [--search_opts <OPTIONS> [<OPTIONS> ...]] [--resume <CHECKPOINT PATH>]
+python run.py train --devices <DEVICES> --cfg <CONFIG PATH> [--output_dir <OUTPUT>] [--search_opts <OPTIONS> [<OPTIONS> ...]] [--resume <CHECKPOINT PATH>] [--log_freq <LOG FREQUENCY>]
 ```
 
 #### Example
 
 ```
-python run.py train --devices 0,1 --cfg configs/simnet_cifar10.yaml
+python run.py train --devices 0,1 --cfg configs/simnet_cifar10.yaml --log_freq 3
 ```
 
 Search hyperparameters
@@ -68,11 +68,11 @@ python run.py train --devices 0,1 --cfg outputs/x/simnet_cifar10.yaml --resume o
 ### Test
 
 ```
-python run.py test --devices <DEVICES> --cfg <CONFIG PATH> --checkpoint <CHECKPOINT PATH>
+python run.py test --devices <DEVICES> --cfg <CONFIG PATH> --checkpoint <CHECKPOINT PATH> [--log_freq <LOG FREQUENCY>]
 ```
 
 #### Example
 
 ```
-python run.py test --devices 0,1 --cfg outputs/x/simnet_cifar10.yaml --checkpoint outputs/x/latest.ckpt
+python run.py test --devices 0,1 --cfg outputs/x/simnet_cifar10.yaml --checkpoint outputs/x/latest.ckpt --log_freq 3
 ```

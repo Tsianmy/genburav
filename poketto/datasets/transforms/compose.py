@@ -1,4 +1,4 @@
-from poketto import build
+from poketto import factory
 
 class Compose:
     """Compose multiple transforms sequentially.
@@ -14,7 +14,7 @@ class Compose:
             if callable(transform):
                 self.transforms.append(transform)
             else:
-                self.transforms.append(build.build_transform(transform))
+                self.transforms.append(factory.new_transform(transform))
 
     def __call__(self, data):
         for t in self.transforms:

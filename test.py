@@ -5,14 +5,14 @@ import argparse
 import torch
 from torch import distributed as dist
 from omegaconf import OmegaConf
-from poketto.build import (build_model, build_dataloader, build_data_preprocessor,
-                         build_evaluator)
+from poketto import factory
 from poketto.utils import create_logger, RNGManager
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', required=True, metavar="FILE", help='path to config file', )
     parser.add_argument('--checkpoint', type=str)
+    parser.add_argument('--log_freq', type=int, default=2)
 
     args, _ = parser.parse_known_args()
 
@@ -33,11 +33,11 @@ def setup_environment(args):
     config = None
     if args.rank == 0:
         config = OmegaConf.load(args.cfg)
+        config.merge_with(args.__dict__)
     sync_objs = [config]
     dist.broadcast_object_list(sync_objs, src=0)
     config = sync_objs[0]
 
-    config.merge_with(args.__dict__)
     logger.info(f'Config\n{OmegaConf.to_yaml(config, resolve=True)}')
 
     ### set seed
@@ -74,6 +74,7 @@ def evaluate(config, model, dataloader, data_preprocessor, evaluator):
     model.eval()
     batch_time = 0
     L = len(dataloader)
+    log_interval = L // config.log_freq
 
     end = time.time()
     for it, samples in enumerate(dataloader):
@@ -86,7 +87,7 @@ def evaluate(config, model, dataloader, data_preprocessor, evaluator):
         batch_time += time.time() - end
         end = time.time()
 
-        if it % config.log_interval == 0:
+        if it % log_interval == 0:
             memory_used = torch.cuda.max_memory_reserved() / (1024.0 * 1024.0)
             logger.info(
                 f'Val [{it}/{L - 1}]  time: {batch_time:.2f}  mem: {memory_used:.0f}MB')
@@ -105,18 +106,18 @@ if __name__ == '__main__':
 
     config, logger = setup_environment(args)
 
-    val_dataloader = build_dataloader(config.val_dataloader)
+    val_dataloader = factory.new_dataloader(config.val_dataloader)
 
-    data_preprocessor = build_data_preprocessor(config.data_preprocessor)
+    data_preprocessor = factory.new_data_preprocessor(config.data_preprocessor)
 
-    model = build_model(config.model)
+    model = factory.new_model(config.model)
     logger.info(str(model))
     model.cuda()
 
     if config.checkpoint:
         load_model_checkpoint(config.checkpoint, config, model)
 
-    evaluator = build_evaluator(config.evaluator)
+    evaluator = factory.new_evaluator(config.evaluator)
 
     test(config,
          model,

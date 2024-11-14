@@ -6,8 +6,7 @@ import argparse
 import torch
 from torch import distributed as dist
 from omegaconf import OmegaConf
-from poketto.build import (build_model, build_dataloader, build_optimizer,
-                         build_scheduler, build_evaluator, build_data_preprocessor)
+from poketto import factory
 from poketto.utils import Tee, LossDict, RNGManager, create_logger
 
 def parse_args():
@@ -15,6 +14,7 @@ def parse_args():
     parser.add_argument('--cfg', required=True, metavar="FILE", help='path to config file', )
     parser.add_argument('--output_dir', default='outputs')
     parser.add_argument('--resume', type=str)
+    parser.add_argument('--log_freq', type=int, default=2)
     parser.add_argument('override_cfg', nargs=argparse.REMAINDER)
 
     args = parser.parse_args()
@@ -46,11 +46,11 @@ def setup_environment(args):
         if args.override_cfg:
             config.merge_with_dotlist(args.override_cfg)
         OmegaConf.save(config, os.path.join(args.output_dir, os.path.basename(args.cfg)))
+        config.merge_with({k: v for k, v in args.__dict__.items() if k != 'override_cfg'})
     sync_objs = [config]
     dist.broadcast_object_list(sync_objs, src=0)
     config = sync_objs[0]
 
-    config.merge_with({k: v for k, v in args.__dict__.items() if k != 'override_cfg'})
     logger.info(f'Config\n{OmegaConf.to_yaml(config, resolve=True)}')
 
     ### set seed
@@ -140,6 +140,7 @@ def train_one_epoch(config, model, dataloader, data_preprocessor, optimizer,
     model.train()
 
     L = len(dataloader)
+    log_interval = L // config.log_freq + 1
     loss_dict = LossDict()
     start = time.time()
     data_end = time.time()
@@ -168,7 +169,7 @@ def train_one_epoch(config, model, dataloader, data_preprocessor, optimizer,
         
         batch_time = time.time() - end
         loss_dict.update(losses)
-        if it % config.log_interval == 0 or it == L - 1:
+        if it % log_interval == 0 or it == L - 1:
             if len(optimizer.param_groups) > 1:
                 lr = [f'{group["lr"]:.3g}' for group in optimizer.param_groups]
             else:
@@ -194,6 +195,7 @@ def evaluate(config, model, dataloader, data_preprocessor, evaluator, epoch,
     model.eval()
     loss_dict = LossDict()
     L = len(dataloader)
+    log_interval = L // config.log_freq + 1
 
     start = time.time()
     data_end = time.time()
@@ -213,7 +215,7 @@ def evaluate(config, model, dataloader, data_preprocessor, evaluator, epoch,
         batch_time = time.time() - end
         end = time.time()
 
-        if it % config.log_interval == 0 or it == L - 1:
+        if it % log_interval == 0 or it == L - 1:
             memory_used = torch.cuda.max_memory_reserved() / (1024.0 * 1024.0)
             logger.info(f'Val [{epoch}][{it}/{L - 1}]  {loss_dict}'
                 f'  time: {batch_time:.2f} (data {data_time:.2f})  mem: {memory_used:.0f}MB')
@@ -247,30 +249,30 @@ if __name__ == '__main__':
     config, logger, rng_manager = setup_environment(args)
 
     logger.info(f'building dataloader')
-    train_dataloader = build_dataloader(config.train_dataloader,
+    train_dataloader = factory.new_dataloader(config.train_dataloader,
                                         sampler_seed=rng_manager.seed)
-    val_dataloader = build_dataloader(config.val_dataloader)
+    val_dataloader = factory.new_dataloader(config.val_dataloader)
     logger.info(f'train num: {len(train_dataloader.dataset)}')
     logger.info(f'val num: {len(val_dataloader.dataset)}')
 
     logger.info(f'building data_preprocessor {config.data_preprocessor["type"]}')
-    data_preprocessor = build_data_preprocessor(config.data_preprocessor)
+    data_preprocessor = factory.new_data_preprocessor(config.data_preprocessor)
 
     logger.info(f'building model {config.model["type"]}')
-    model = build_model(config.model)
+    model = factory.new_model(config.model)
     logger.info(str(model))
     model.cuda()
 
     logger.info(f'building optimizer {config.optimizer["type"]}')
-    optimizer = build_optimizer(config.optimizer, model.parameters())
+    optimizer = factory.new_optimizer(config.optimizer, model.parameters())
 
     scheduler = None
     if getattr(config, 'scheduler', None) is not None:
         logger.info(f'building scheduler {config.scheduler["type"]}')
-        scheduler = build_scheduler(config.scheduler, optimizer, len(train_dataloader))
+        scheduler = factory.new_scheduler(config.scheduler, optimizer, len(train_dataloader))
 
     logger.info(f'building evaluator')
-    evaluator = build_evaluator(config.evaluator)
+    evaluator = factory.new_evaluator(config.evaluator)
 
     logger.info(f'building GradScaler')
     grad_scaler = torch.cuda.amp.grad_scaler.GradScaler(enabled=config.use_amp)

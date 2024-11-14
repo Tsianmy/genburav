@@ -22,8 +22,8 @@ def parse_args():
             obj = [delete_recur(x, ch_list) for x in obj]
         return obj
 
-    for a, v in args._get_kwargs():
-        setattr(args, a, delete_recur(v, '\'"'))
+    for k, v in args._get_kwargs():
+        setattr(args, k, delete_recur(v, '\'"'))
     
     for i, a in enumerate(unknown):
         unknown[i] = delete_recur(a, '\'"')

@@ -1,5 +1,5 @@
 from typing import Sequence
-from poketto import build
+from poketto import factory
 
 class Evaluator:
     def __init__(self, metrics, primary_metric=None):
@@ -7,7 +7,7 @@ class Evaluator:
             metrics = [metrics]
         self.metrics = []
         for metric in metrics:
-            self.metrics.append(build.build_metric(metric))
+            self.metrics.append(factory.new_metric(metric))
 
         self.best_eval_metrics = {}
         self.primary_metric_key = primary_metric

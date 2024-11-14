@@ -68,6 +68,5 @@ scheduler:
   t_initial: ${train_epochs}
   lr_min: 1.0e-06
   t_in_epochs: true
-log_interval: 50
 seed: 0
 use_amp: true

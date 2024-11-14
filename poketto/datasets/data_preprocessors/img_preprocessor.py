@@ -1,7 +1,7 @@
 import torch
 from torch.nn import functional as F
 from .base import BaseDataPreprocessor
-from poketto import build
+from poketto import factory
 
 class ImgDataPreprocessor(BaseDataPreprocessor):
     def __init__(self, *args, minmax=False, mean=None, std=None,
@@ -19,7 +19,7 @@ class ImgDataPreprocessor(BaseDataPreprocessor):
         else:
             self._normalize = False
         if batch_aug is not None:
-            self.batch_aug = build.build_batch_aug(batch_aug)
+            self.batch_aug = factory.new_batch_aug(batch_aug)
         else:
             self.batch_aug = None
     

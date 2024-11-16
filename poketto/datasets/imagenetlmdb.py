@@ -13,7 +13,7 @@ class ImageNetLMDB(BaseDataset):
     """
     def __init__(self,
                  data_root='',
-                 transforms='',
+                 transforms=None,
                  test_mode=False,
                  **kwargs):
 
@@ -37,7 +37,7 @@ class ImageNetLMDB(BaseDataset):
 
         return data_list
 
-    def prepare_data(self, idx):
+    def raw_data(self, idx):
         key = self.data_list[idx]
         with self.env.begin(write=False) as txn:
             byteflow = txn.get(key)
@@ -52,4 +52,4 @@ class ImageNetLMDB(BaseDataset):
                 'gt_label': int(gt_label),
                 'im_name': str(key)}
 
-        return self.transforms(data)
+        return data

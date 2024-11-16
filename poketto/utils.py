@@ -8,6 +8,7 @@ import copy
 from io import TextIOWrapper
 from typing import Union, Sequence, Any
 from argparse import ArgumentParser, Namespace, Action
+from timm.utils import AverageMeter
 
 glogger = logging.getLogger('global')
 
@@ -148,23 +149,6 @@ class DictAction(Action):
                 options[key] = self._parse_iterable(val)
         setattr(namespace, self.dest, options)
 
-class AverageMeter:
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0.
-        self.avg = 0.
-        self.sum = 0.
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
 class Tee(TextIOWrapper):
     def __init__(self, textio, filename, mode='w'):
         super().__init__(textio.buffer, textio.encoding, textio.errors,
@@ -191,19 +175,19 @@ class Tee(TextIOWrapper):
 class LossDict(dict):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.avg_loss = AverageMeter()
+        self.avgs = {}
     
     def update(self, *args, **kwargs):
         super().update(*args, **kwargs)
-        loss = self['loss'].item()
-        self.avg_loss.update(loss)
+        for k in self:
+            if not k in self.avgs:
+                self.avgs[k] = AverageMeter()
+            self.avgs[k].update(self[k].item())
     
     def __str__(self):
         msg = ''
         for k, v in self.items():
-            msg += f'  {k}: {v.item():.5f}'
-            if k == 'loss':
-                msg += f' ({self.avg_loss.avg:.5f})'
+            msg += f'  {k}: {v.item():.5f} ({self.avgs[k].avg:.5f})'
         return msg.lstrip()
 
 class RNGManager:

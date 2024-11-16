@@ -5,7 +5,7 @@ from .transforms import Compose
 class BaseDataset(Dataset):
     def __init__(self,
                  data_root='',
-                 transforms=[],
+                 transforms=None,
                  test_mode=False,
                  max_refetch=100):
 
@@ -39,6 +39,10 @@ class BaseDataset(Dataset):
         raise Exception(f'Cannot find valid image after {self.max_refetch}! ')
     
     def prepare_data(self, idx):
+        data = self.raw_data(idx)
+        return self.transforms(data)
+    
+    def raw_data(self, idx):
         raise NotImplementedError
     
     def _rand_another(self) -> int:

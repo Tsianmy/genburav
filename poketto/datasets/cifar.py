@@ -26,7 +26,7 @@ class CIFAR10(BaseDataset):
     def __init__(
         self,
         data_root='',
-        transforms=[],
+        transforms=None,
         test_mode=False,
         **kwargs
     ):
@@ -69,13 +69,13 @@ class CIFAR10(BaseDataset):
         for i, (img, gt_label) in enumerate(zip(imgs, gt_labels)):
             info = {'img': tv_tensors.Image(img),
                     'gt_label': int(gt_label),
+                    'sample_idx': i,
                     'im_name': str(i)}
             data_list.append(info)
         return data_list
     
-    def prepare_data(self, idx):
-        data = self.data_list[idx]
-        return self.transforms(data)
+    def raw_data(self, idx):
+        return self.data_list[idx]
 
 class CIFAR100(CIFAR10):
     base_folder = 'cifar-100-python'

@@ -1,13 +1,15 @@
 import torch
 from torch import distributed as dist
+from .base_metric import Metric
 
-class Accuracy:
+class Accuracy(Metric):
     def __init__(self, topk = (1, )):
         self.results = {'pred': [], 'gt_label': []}
         if isinstance(topk, int):
             self.topk = (topk, )
         else:
             self.topk = tuple(topk)
+        self.metric_names = [f'top{i}' for i in self.topk]
         
     def fetch(self, result):
         self.results['pred'].append(result['pred'])
@@ -21,8 +23,7 @@ class Accuracy:
         acc = self.calculate(pred, target, self.topk)
         metrics = {}
         for i, v in enumerate(acc):
-            k = self.topk[i]
-            metrics[f'top{k}'] = v.item()
+            metrics[self.metric_names[i]] = v.item()
         
         for l in self.results:
             self.results[l].clear()

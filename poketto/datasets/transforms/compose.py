@@ -1,20 +1,19 @@
-from poketto import factory
+from typing import Sequence, Callable
 
 class Compose:
     """Compose multiple transforms sequentially.
     """
 
-    def __init__(self, transforms):
+    def __init__(self, transforms: Sequence[Callable]):
         self.transforms = []
 
         if transforms is None:
             transforms = []
 
         for transform in transforms:
-            if callable(transform):
-                self.transforms.append(transform)
-            else:
-                self.transforms.append(factory.new_transform(transform))
+            if not callable(transform):
+                raise TypeError(f'transform {transform} is not callable')
+            self.transforms.append(transform)
 
     def __call__(self, data):
         for t in self.transforms:

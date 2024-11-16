@@ -5,6 +5,7 @@ from . import models
 from . import optimizers
 from . import schedulers
 from . import evaluation
+from . import visualization
 from . import datasets
 from .datasets import transforms, samplers, data_preprocessors, batch_augs
 from .evaluation import metrics
@@ -36,7 +37,9 @@ def new_transform(cfg_transform):
     return transform
 
 def new_dataset(cfg_dataset):
-    dataset = _new_obj(datasets, cfg_dataset)
+    cfg_transforms = cfg_dataset.pop('transforms', [])
+    transforms = [new_transform(cfg_tr) for cfg_tr in cfg_transforms]
+    dataset = _new_obj(datasets, cfg_dataset, transforms=transforms)
 
     return dataset
 
@@ -71,22 +74,32 @@ def new_scheduler(cfg_scheduler, optimizer, epoch_len=None):
 
     return scheduler
 
-def new_evaluator(cfg_evaluator):
-    evaluator = _new_obj(evaluation, cfg_evaluator)
-    
-    return evaluator
-
 def new_metric(cfg_metric):
     metric = _new_obj(metrics, cfg_metric)
     
     return metric
 
-def new_data_preprocessor(cfg_data_preprocessor):
-    data_preprocessor = _new_obj(data_preprocessors, cfg_data_preprocessor)
-
-    return data_preprocessor
+def new_evaluator(cfg_evaluator):
+    cfg_metrics = cfg_evaluator.pop('metrics', [])
+    metrics = [new_metric(cfg_metric) for cfg_metric in cfg_metrics]
+    evaluator = _new_obj(evaluation, cfg_evaluator, metrics=metrics)
+    
+    return evaluator
 
 def new_batch_aug(cfg_batch_aug):
     batch_augment = _new_obj(batch_augs, cfg_batch_aug)
 
     return batch_augment
+
+def new_data_preprocessor(cfg_data_preprocessor):
+    cfg_batch_aug = cfg_data_preprocessor.pop('batch_aug', None)
+    batch_aug = new_batch_aug(cfg_batch_aug)
+    data_preprocessor = _new_obj(
+        data_preprocessors, cfg_data_preprocessor, batch_aug=batch_aug)
+
+    return data_preprocessor
+
+def new_visualizer(cfg_visualizer, save_dir, **kwargs):
+    visualizer = _new_obj(visualization, cfg_visualizer, save_dir=save_dir, **kwargs)
+
+    return visualizer

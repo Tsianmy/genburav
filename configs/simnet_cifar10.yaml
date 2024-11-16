@@ -64,5 +64,8 @@ scheduler:
   t_initial: ${train_epochs}
   lr_min: 1.0e-6
   t_in_epochs: true
+visualizer:
+  type: ImgClassificationVisualizer
+  use_tensorboard: true
 seed: 0
 use_amp: true

@@ -102,24 +102,28 @@ def load_checkpoint(path_ckpt, config, model, optimizer,
     if rng_manager is not None and checkpoint.get('rng', None) is not None:
         rng_manager.load_state_dict(checkpoint['rng'])
 
-def train(config, model, train_dataloader, val_dataloader, data_preprocessor, optimizer,
-          evaluator, lr_scheduler=None, grad_scaler=None, rng_manager=None):
+def train(config, model, train_dataloader, val_dataloader, data_preprocessor,
+          optimizer, evaluator, lr_scheduler=None, grad_scaler=None,
+          rng_manager=None, visualizer=None):
     model = torch.nn.parallel.DistributedDataParallel(
         model, device_ids=[config.device_id], broadcast_buffers=False)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {num_params / 1e6}M")
 
     start_epoch = getattr(config, 'start_epoch', 0)
-    if start_epoch > 0:
-        evaluate(config, model, val_dataloader, data_preprocessor, evaluator,
-                 start_epoch - 1, lr_scheduler)
+    if start_epoch > 0 and val_dataloader is not None:
+        evaluate(
+            config, model, val_dataloader, data_preprocessor, evaluator,
+            start_epoch - 1, lr_scheduler, visualizer)
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(start_epoch, config.train_epochs):
         train_dataloader.sampler.set_epoch(epoch)
 
-        train_one_epoch(config, model, train_dataloader, data_preprocessor,
-                        optimizer, epoch, lr_scheduler, grad_scaler)
+        train_one_epoch(
+            config, model, train_dataloader, data_preprocessor,
+            optimizer, epoch, evaluator, lr_scheduler, grad_scaler,
+            visualizer)
 
         if config.rank == 0:
             save_checkpoint(
@@ -128,16 +132,20 @@ def train(config, model, train_dataloader, val_dataloader, data_preprocessor, op
                  'scheduler': lr_scheduler, 'grad_scaler': grad_scaler},
                 os.path.join(config.output_dir, 'latest.ckpt'))
 
-        evaluate(config, model, val_dataloader, data_preprocessor, evaluator,
-                 epoch, lr_scheduler)
-
+        if val_dataloader is not None:
+            evaluate(
+                config, model, val_dataloader, data_preprocessor, evaluator,
+                epoch, lr_scheduler, visualizer)
 
     total_time = time.time() - start_time
     logger.info(f'Training time {datetime.timedelta(seconds=int(total_time))}')
 
 def train_one_epoch(config, model, dataloader, data_preprocessor, optimizer,
-                    epoch, lr_scheduler=None, grad_scaler=None):
+                    epoch, evaluator, lr_scheduler=None, grad_scaler=None,
+                    visualizer=None):
     model.train()
+    if visualizer is not None:
+        visualizer.set_mode('train')
 
     L = len(dataloader)
     log_interval = L // config.log_freq + 1
@@ -169,6 +177,7 @@ def train_one_epoch(config, model, dataloader, data_preprocessor, optimizer,
         
         batch_time = time.time() - end
         loss_dict.update(losses)
+        evaluator.fetch(results)
         if it % log_interval == 0 or it == L - 1:
             if len(optimizer.param_groups) > 1:
                 lr = [f'{group["lr"]:.3g}' for group in optimizer.param_groups]
@@ -186,13 +195,29 @@ def train_one_epoch(config, model, dataloader, data_preprocessor, optimizer,
         
         data_end = time.time()
 
+    metrics = evaluator.evaluate()
+    msg = ''
+    for k, v in metrics.items():
+        msg += f' {k}: {v:.3f}'
+    logger.info(msg.strip())
+
     epoch_time = time.time() - start
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
+    if visualizer is not None:
+        vis_data = {
+            'losses': {k: v.avg for k, v in loss_dict.avgs.items()},
+            'metrics': {k: v for k, v in metrics.items()},
+            'last_batch': results
+        }
+        visualizer.add_data(vis_data, dataloader.dataset, epoch)
+
 @torch.no_grad()
 def evaluate(config, model, dataloader, data_preprocessor, evaluator, epoch,
-             lr_scheduler=None):
+             lr_scheduler=None, visualizer=None):
     model.eval()
+    if visualizer is not None:
+        visualizer.set_mode('eval')
     loss_dict = LossDict()
     L = len(dataloader)
     log_interval = L // config.log_freq + 1
@@ -207,8 +232,7 @@ def evaluate(config, model, dataloader, data_preprocessor, evaluator, epoch,
         with torch.cuda.amp.autocast(enabled=config.use_amp):
             results = model(samples, mode='loss')
 
-        losses = results.pop('losses')
-        loss_dict.update(losses)
+        loss_dict.update(results['losses'])
 
         evaluator.fetch(results)
         
@@ -230,16 +254,24 @@ def evaluate(config, model, dataloader, data_preprocessor, evaluator, epoch,
     logger.info(msg)
 
     best_metrics = evaluator.best_eval_metrics
-    msg = 'best |'
+    msg = ' * best |'
     for k, v in best_metrics.items():
         msg += f' {k}: {v:.3f}'
     logger.info(msg)
 
     if lr_scheduler is not None and getattr(lr_scheduler, 'need_metric', False):
         lr_scheduler.metric = metrics[evaluator.primary_metric_key]
-
+        
     val_time = time.time() - start
     logger.info(f"evaluating takes {datetime.timedelta(seconds=int(val_time))}")
+
+    if visualizer is not None:
+        vis_data = {
+            'losses': {k: v.avg for k, v in loss_dict.avgs.items()},
+            'metrics': {k: v for k, v in metrics.items()},
+            'last_batch': results
+        }
+        visualizer.add_data(vis_data, dataloader.dataset, epoch)
 
     return metrics, best_metrics
 
@@ -251,9 +283,11 @@ if __name__ == '__main__':
     logger.info(f'building dataloader')
     train_dataloader = factory.new_dataloader(config.train_dataloader,
                                         sampler_seed=rng_manager.seed)
-    val_dataloader = factory.new_dataloader(config.val_dataloader)
     logger.info(f'train num: {len(train_dataloader.dataset)}')
-    logger.info(f'val num: {len(val_dataloader.dataset)}')
+    val_dataloader = None
+    if getattr(config, 'val_dataloader', None) is not None:
+        val_dataloader = factory.new_dataloader(config.val_dataloader)
+        logger.info(f'val num: {len(val_dataloader.dataset)}')
 
     logger.info(f'building data_preprocessor {config.data_preprocessor["type"]}')
     data_preprocessor = factory.new_data_preprocessor(config.data_preprocessor)
@@ -276,6 +310,12 @@ if __name__ == '__main__':
 
     logger.info(f'building GradScaler')
     grad_scaler = torch.cuda.amp.grad_scaler.GradScaler(enabled=config.use_amp)
+    
+    visualizer = None
+    if config.rank == 0 and getattr(config, 'visualizer', None) is not None:
+        logger.info(f'building visualizer {config.visualizer["type"]}')
+        visualizer = factory.new_visualizer(
+            config.visualizer, config.output_dir, tb_log_metrics=evaluator.metric_names)
 
     if config.resume:
         logger.info(f'loading checkpoint from {config.resume}')
@@ -283,6 +323,6 @@ if __name__ == '__main__':
                         scheduler, grad_scaler, rng_manager)
 
     train(config, model, train_dataloader, val_dataloader, data_preprocessor,
-          optimizer, evaluator, scheduler, grad_scaler, rng_manager)
+          optimizer, evaluator, scheduler, grad_scaler, rng_manager, visualizer)
 
     clear_environment()

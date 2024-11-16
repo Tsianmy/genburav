@@ -1,7 +1,6 @@
 import torch
 from torch.nn import functional as F
 from .base import BaseDataPreprocessor
-from poketto import factory
 
 class ImgDataPreprocessor(BaseDataPreprocessor):
     def __init__(self, *args, minmax=False, mean=None, std=None,
@@ -18,10 +17,7 @@ class ImgDataPreprocessor(BaseDataPreprocessor):
             self._normalize = True
         else:
             self._normalize = False
-        if batch_aug is not None:
-            self.batch_aug = factory.new_batch_aug(batch_aug)
-        else:
-            self.batch_aug = None
+        self.batch_aug = batch_aug
     
     def __call__(self, data: dict, training=False):
         img = self.to_cuda(data['img'])

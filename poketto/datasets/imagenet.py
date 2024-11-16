@@ -17,7 +17,7 @@ class ImageNet(BaseDataset):
     """
     def __init__(self,
                  data_root='',
-                 transforms='',
+                 transforms=None,
                  test_mode=False,
                  **kwargs):
 
@@ -49,11 +49,11 @@ class ImageNet(BaseDataset):
             data_list.append(info)
         return data_list
 
-    def prepare_data(self, idx):
+    def raw_data(self, idx):
         data_info = self.data_list[idx]
         img = tvio.read_image(data_info['img_path'])
         data = {'img': tv_tensors.Image(img),
                 'gt_label': data_info['gt_label'],
                 'im_name': data_info['im_name']}
 
-        return self.transforms(data)
+        return data

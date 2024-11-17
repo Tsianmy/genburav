@@ -1,6 +1,6 @@
 # GenbuRav (Genbu Ravine)
 
-A Pytorch practice.
+Learning Pytorch.
 
 ## Installation
 
@@ -76,3 +76,9 @@ python run.py test --devices <DEVICES> --cfg <CONFIG PATH> --checkpoint <CHECKPO
 ```
 python run.py test --devices 0,1 --cfg outputs/x/simnet_cifar10.yaml --checkpoint outputs/x/latest.ckpt --log_freq 3
 ```
+
+## Acknowledgments
+
+* [OpenMMLab projects](https://github.com/open-mmlab)
+* [Swin Transformer](https://github.com/microsoft/Swin-Transformer)
+* [Neural Point-Based Graphics](https://github.com/alievk/npbg)

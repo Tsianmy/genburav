@@ -52,6 +52,7 @@ class TinyImageNet(BaseDataset):
             img = img.repeat(3, 1, 1)
         data = {'img': tv_tensors.Image(img),
                 'gt_label': data_info['gt_label'],
+                'sample_idx': idx,
                 'im_name': data_info['im_name']}
 
         return data

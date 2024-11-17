@@ -50,6 +50,7 @@ class ImageNetLMDB(BaseDataset):
 
         data = {'img': tv_tensors.Image(img),
                 'gt_label': int(gt_label),
+                'sample_idx': idx,
                 'im_name': str(key)}
 
         return data

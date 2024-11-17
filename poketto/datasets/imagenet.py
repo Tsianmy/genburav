@@ -54,6 +54,7 @@ class ImageNet(BaseDataset):
         img = tvio.read_image(data_info['img_path'])
         data = {'img': tv_tensors.Image(img),
                 'gt_label': data_info['gt_label'],
+                'sample_idx': idx,
                 'im_name': data_info['im_name']}
 
         return data

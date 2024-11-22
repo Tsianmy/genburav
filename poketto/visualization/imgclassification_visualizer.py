@@ -74,6 +74,7 @@ class ImgClassificationVisualizer:
             ax.set_title(
                 title,
                 fontdict={'fontsize': 24},
-                color=("green" if preds[idx]==labels[idx] else "red"))
+                color=("green" if preds[idx]==labels[idx] else "red")
+            )
         return fig
     

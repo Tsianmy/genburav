@@ -3,12 +3,13 @@ from torch.utils.data import Dataset
 from .transforms import Compose
 
 class BaseDataset(Dataset):
-    def __init__(self,
-                 data_root='',
-                 transforms=None,
-                 test_mode=False,
-                 max_refetch=100):
-
+    def __init__(
+        self,
+        data_root='',
+        transforms=None,
+        test_mode=False,
+        max_refetch=100
+    ):
         super().__init__()
         self.data_root = data_root
         self.test_mode = test_mode

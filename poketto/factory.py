@@ -58,8 +58,8 @@ def new_dataloader(cfg_dataloader, sampler_seed=None):
 
     collate_keys = cfg_dataloader.pop('collate_keys', [])
     collate_fn = datasets.get_collate_fn(collate_keys)
-    dataloader = torchdata.DataLoader(dataset, sampler=sampler, collate_fn=collate_fn,
-                                      **cfg_dataloader)
+    dataloader = torchdata.DataLoader(
+        dataset, sampler=sampler, collate_fn=collate_fn, **cfg_dataloader)
     cfg_dataloader['dataset'] = cfg_dataset
 
     return dataloader

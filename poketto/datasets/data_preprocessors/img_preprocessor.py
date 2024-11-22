@@ -3,9 +3,18 @@ from torch.nn import functional as F
 from .base import BaseDataPreprocessor
 
 class ImgDataPreprocessor(BaseDataPreprocessor):
-    def __init__(self, *args, minmax=False, mean=None, std=None,
-                 batch_aug=None, to_onehot=False, num_classes=None, label_smooth=None,
-                 **kwargs):
+    def __init__(
+        self,
+        *args,
+        minmax=False,
+        mean=None,
+        std=None,
+        batch_aug=None,
+        to_onehot=False,
+        num_classes=None,
+        label_smooth=None,
+        **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.minmax = minmax
         self.mean = mean

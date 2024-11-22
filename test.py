@@ -57,7 +57,8 @@ def load_model_checkpoint(path_ckpt, config, model):
     model.load_state_dict(checkpoint['model'])
 
 def test(config, model, val_dataloader, data_preprocessor, evaluator):
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.device_id], broadcast_buffers=False)
+    model = torch.nn.parallel.DistributedDataParallel(
+        model, device_ids=[config.device_id], broadcast_buffers=False)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {num_params / 1e6}M")
 
@@ -119,10 +120,12 @@ if __name__ == '__main__':
 
     evaluator = factory.new_evaluator(config.evaluator)
 
-    test(config,
-         model,
-         val_dataloader,
-         data_preprocessor,
-         evaluator)
+    test(
+        config,
+        model,
+        val_dataloader,
+        data_preprocessor,
+        evaluator
+    )
     
     clear_environment()

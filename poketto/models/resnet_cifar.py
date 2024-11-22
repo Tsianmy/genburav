@@ -9,8 +9,10 @@ class ResNet_CIFAR(ResNet):
         block = kwargs['block']
         kwargs['block'] = blocks[block]
         super().__init__(**kwargs)
-        self.conv1 = nn.Conv2d(self.conv1.in_channels, self.conv1.out_channels,
-                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(
+            self.conv1.in_channels, self.conv1.out_channels,
+            kernel_size=3, stride=1, padding=1, bias=False
+        )
         self.criterion = nn.CrossEntropyLoss()
         self.init_weights(zero_init_last=kwargs.get('zero_init_last', True))
 
@@ -20,7 +22,8 @@ class ResNet_CIFAR(ResNet):
         x = self.act1(x)
 
         if self.grad_checkpointing and not torch.jit.is_scripting():
-            x = checkpoint_seq([self.layer1, self.layer2, self.layer3, self.layer4], x, flatten=True)
+            x = checkpoint_seq(
+                [self.layer1, self.layer2, self.layer3, self.layer4], x, flatten=True)
         else:
             x = self.layer1(x)
             x = self.layer2(x)

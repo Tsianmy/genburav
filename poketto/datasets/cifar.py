@@ -30,10 +30,12 @@ class CIFAR10(BaseDataset):
         test_mode=False,
         **kwargs
     ):
-        super().__init__(data_root=data_root,
-                         transforms=transforms,
-                         test_mode=test_mode,
-                         **kwargs)
+        super().__init__(
+            data_root=data_root,
+            transforms=transforms,
+            test_mode=test_mode,
+            **kwargs
+        )
     
     def load_data_list(self):
         self.ann_file = os.path.join(self.data_root, self.base_folder, self.meta['filename'])

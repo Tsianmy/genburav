@@ -15,17 +15,19 @@ class ImageNet(BaseDataset):
             n01440764/
                 images
     """
-    def __init__(self,
-                 data_root='',
-                 transforms=None,
-                 test_mode=False,
-                 **kwargs):
-
+    def __init__(
+        self,
+        data_root='',
+        transforms=None,
+        test_mode=False,
+        **kwargs
+    ):
         super().__init__(
             data_root=data_root,
             transforms=transforms,
             test_mode=test_mode,
-            **kwargs)
+            **kwargs
+        )
     
     def load_data_list(self):
         """Load image paths and gt_labels."""

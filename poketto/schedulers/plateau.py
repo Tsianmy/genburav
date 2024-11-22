@@ -3,25 +3,27 @@ from timm.scheduler import PlateauLRScheduler
 from timm.scheduler.scheduler import Scheduler
 
 class PlateauLR(PlateauLRScheduler):
-    def __init__(self,
-                 optimizer,
-                 decay_rate=0.1,
-                 patience_t=10,
-                 verbose=True,
-                 threshold=0.0001,
-                 cooldown_t=0,
-                 warmup_it=0,
-                 warmup_lr_init=0,
-                 lr_min=0,
-                 mode='max',
-                 noise_range_t=None,
-                 noise_type='normal',
-                 noise_pct=0.67,
-                 noise_std=1,
-                 noise_seed=None,
-                 initialize=True,
-                 t_in_epochs=True,
-                 epoch_len=None):
+    def __init__(
+        self,
+        optimizer,
+        decay_rate=0.1,
+        patience_t=10,
+        verbose=True,
+        threshold=0.0001,
+        cooldown_t=0,
+        warmup_it=0,
+        warmup_lr_init=0,
+        lr_min=0,
+        mode='max',
+        noise_range_t=None,
+        noise_type='normal',
+        noise_pct=0.67,
+        noise_std=1,
+        noise_seed=None,
+        initialize=True,
+        t_in_epochs=True,
+        epoch_len=None
+    ):
         Scheduler.__init__(
             self,
             optimizer,

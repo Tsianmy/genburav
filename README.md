@@ -56,7 +56,7 @@ python run.py train --devices 0,1 --cfg configs/simnet_cifar10.yaml --log_freq 3
 Search hyperparameters
 
 ```
-python run.py train --devices 0,1 --cfg configs/simnet_cifar10.yaml --search_opts 'optimizer.lr=[0.02,0.05,0.1]' 'train_transforms[0].padding=2'
+python run.py train --devices 0,1 --cfg configs/simnet_cifar10.yaml --search_opts 'optimizer.lr=[0.05,0.1]' 'train_transforms[0].padding=2' 'data_preprocessor.mean=[[128,125,112],[129.304,124.070,112.434]]'
 ```
 
 Resume from checkpoint

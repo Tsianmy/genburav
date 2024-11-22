@@ -86,8 +86,15 @@ def save_checkpoint(state, save_path):
         state['rng'] = rng.state_dict()
     torch.save(state, save_path)
 
-def load_checkpoint(path_ckpt, config, model, optimizer,
-                    lr_scheduler=None, grad_scaler=None, rng_manager=None):
+def load_checkpoint(
+    path_ckpt,
+    config,
+    model,
+    optimizer,
+    lr_scheduler=None,
+    grad_scaler=None,
+    rng_manager=None
+):
     with open(path_ckpt, 'rb') as f:
         checkpoint = torch.load(f, map_location='cpu')
     assert isinstance(checkpoint, dict), f'dict expected, but get {type(checkpoint)}'
@@ -102,9 +109,19 @@ def load_checkpoint(path_ckpt, config, model, optimizer,
     if rng_manager is not None and checkpoint.get('rng', None) is not None:
         rng_manager.load_state_dict(checkpoint['rng'])
 
-def train(config, model, train_dataloader, val_dataloader, data_preprocessor,
-          optimizer, evaluator, lr_scheduler=None, grad_scaler=None,
-          rng_manager=None, visualizer=None):
+def train(
+    config,
+    model,
+    train_dataloader,
+    val_dataloader,
+    data_preprocessor,
+    optimizer,
+    evaluator,
+    lr_scheduler=None,
+    grad_scaler=None,
+    rng_manager=None,
+    visualizer=None
+):
     model = torch.nn.parallel.DistributedDataParallel(
         model, device_ids=[config.device_id], broadcast_buffers=False)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -114,7 +131,8 @@ def train(config, model, train_dataloader, val_dataloader, data_preprocessor,
     if start_epoch > 0 and val_dataloader is not None:
         evaluate(
             config, model, val_dataloader, data_preprocessor, evaluator,
-            start_epoch - 1, lr_scheduler, visualizer)
+            start_epoch - 1, lr_scheduler, visualizer
+        )
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(start_epoch, config.train_epochs):
@@ -123,32 +141,42 @@ def train(config, model, train_dataloader, val_dataloader, data_preprocessor,
         train_one_epoch(
             config, model, train_dataloader, data_preprocessor,
             optimizer, epoch, evaluator, lr_scheduler, grad_scaler,
-            visualizer)
-
+            visualizer
+        )
         if config.rank == 0:
             save_checkpoint(
                 {'epoch': epoch, 'rng': rng_manager,
                  'model': model, 'optimizer': optimizer,
                  'scheduler': lr_scheduler, 'grad_scaler': grad_scaler},
-                os.path.join(config.output_dir, 'latest.ckpt'))
-
+                os.path.join(config.output_dir, 'latest.ckpt')
+            )
         if val_dataloader is not None:
             evaluate(
                 config, model, val_dataloader, data_preprocessor, evaluator,
-                epoch, lr_scheduler, visualizer)
+                epoch, lr_scheduler, visualizer
+            )
 
     total_time = time.time() - start_time
     logger.info(f'Training time {datetime.timedelta(seconds=int(total_time))}')
 
-def train_one_epoch(config, model, dataloader, data_preprocessor, optimizer,
-                    epoch, evaluator, lr_scheduler=None, grad_scaler=None,
-                    visualizer=None):
+def train_one_epoch(
+    config,
+    model,
+    dataloader,
+    data_preprocessor,
+    optimizer,
+    epoch,
+    evaluator,
+    lr_scheduler=None,
+    grad_scaler=None,
+    visualizer=None
+):
     model.train()
     if visualizer is not None:
         visualizer.set_mode('train')
 
     L = len(dataloader)
-    log_interval = L // config.log_freq + 1
+    log_interval = L // config.log_freq
     loss_dict = LossDict()
     start = time.time()
     data_end = time.time()
@@ -213,14 +241,22 @@ def train_one_epoch(config, model, dataloader, data_preprocessor, optimizer,
         visualizer.add_data(vis_data, dataloader.dataset, epoch)
 
 @torch.no_grad()
-def evaluate(config, model, dataloader, data_preprocessor, evaluator, epoch,
-             lr_scheduler=None, visualizer=None):
+def evaluate(
+    config,
+    model,
+    dataloader,
+    data_preprocessor,
+    evaluator,
+    epoch,
+    lr_scheduler=None,
+    visualizer=None
+):
     model.eval()
     if visualizer is not None:
         visualizer.set_mode('eval')
     loss_dict = LossDict()
     L = len(dataloader)
-    log_interval = L // config.log_freq + 1
+    log_interval = L // config.log_freq
 
     start = time.time()
     data_end = time.time()
@@ -241,8 +277,10 @@ def evaluate(config, model, dataloader, data_preprocessor, evaluator, epoch,
 
         if it % log_interval == 0 or it == L - 1:
             memory_used = torch.cuda.max_memory_reserved() / (1024.0 * 1024.0)
-            logger.info(f'Val [{epoch}][{it}/{L - 1}]  {loss_dict}'
-                f'  time: {batch_time:.2f} (data {data_time:.2f})  mem: {memory_used:.0f}MB')
+            logger.info(
+                f'Val [{epoch}][{it}/{L - 1}]  {loss_dict}'
+                f'  time: {batch_time:.2f} (data {data_time:.2f})  mem: {memory_used:.0f}MB'
+            )
         
         data_end = time.time()
     
@@ -281,8 +319,8 @@ if __name__ == '__main__':
     config, logger, rng_manager = setup_environment(args)
 
     logger.info(f'building dataloader')
-    train_dataloader = factory.new_dataloader(config.train_dataloader,
-                                        sampler_seed=rng_manager.seed)
+    train_dataloader = factory.new_dataloader(
+        config.train_dataloader, sampler_seed=rng_manager.seed)
     logger.info(f'train num: {len(train_dataloader.dataset)}')
     val_dataloader = None
     if getattr(config, 'val_dataloader', None) is not None:
@@ -319,10 +357,23 @@ if __name__ == '__main__':
 
     if config.resume:
         logger.info(f'loading checkpoint from {config.resume}')
-        load_checkpoint(config.resume, config, model, optimizer,
-                        scheduler, grad_scaler, rng_manager)
+        load_checkpoint(
+            config.resume, config, model, optimizer,
+            scheduler, grad_scaler, rng_manager
+        )
 
-    train(config, model, train_dataloader, val_dataloader, data_preprocessor,
-          optimizer, evaluator, scheduler, grad_scaler, rng_manager, visualizer)
+    train(
+        config,
+        model,
+        train_dataloader,
+        val_dataloader,
+        data_preprocessor,
+        optimizer,
+        evaluator,
+        scheduler,
+        grad_scaler,
+        rng_manager,
+        visualizer
+    )
 
     clear_environment()

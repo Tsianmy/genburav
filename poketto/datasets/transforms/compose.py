@@ -1,7 +1,7 @@
 from typing import Sequence, Callable
 
 class Compose:
-    """Compose multiple transforms sequentially.
+    """Composes several transforms together.
     """
 
     def __init__(self, transforms: Sequence[Callable]):

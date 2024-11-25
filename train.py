@@ -14,7 +14,9 @@ def parse_args():
     parser.add_argument('--cfg', required=True, metavar="FILE", help='path to config file', )
     parser.add_argument('--output_dir', default='outputs')
     parser.add_argument('--resume', type=str)
+    parser.add_argument('--eval_interval', type=int, default=1)
     parser.add_argument('--log_freq', type=int, default=2)
+    parser.add_argument('--ckpt_interval', type=int, default=1)
     parser.add_argument('override_cfg', nargs=argparse.REMAINDER)
 
     args = parser.parse_args()
@@ -46,11 +48,11 @@ def setup_environment(args):
         if args.override_cfg:
             config.merge_with_dotlist(args.override_cfg)
         OmegaConf.save(config, os.path.join(args.output_dir, os.path.basename(args.cfg)))
-        config.merge_with({k: v for k, v in args.__dict__.items() if k != 'override_cfg'})
     sync_objs = [config]
     dist.broadcast_object_list(sync_objs, src=0)
     config = sync_objs[0]
 
+    config.merge_with({k: v for k, v in args.__dict__.items() if k != 'override_cfg'})
     logger.info(f'Config\n{OmegaConf.to_yaml(config, resolve=True)}')
 
     ### set seed
@@ -133,9 +135,10 @@ def train(
             config, model, val_dataloader, data_preprocessor, evaluator,
             start_epoch - 1, lr_scheduler, visualizer
         )
+    num_epochs = config.train_epochs
     logger.info("Start training")
     start_time = time.time()
-    for epoch in range(start_epoch, config.train_epochs):
+    for epoch in range(start_epoch, num_epochs):
         train_dataloader.sampler.set_epoch(epoch)
 
         train_one_epoch(
@@ -143,14 +146,14 @@ def train(
             optimizer, epoch, evaluator, lr_scheduler, grad_scaler,
             visualizer
         )
-        if config.rank == 0:
+        if config.rank == 0 and (epoch % config.ckpt_interval == 0 or epoch == num_epochs - 1):
             save_checkpoint(
                 {'epoch': epoch, 'rng': rng_manager,
                  'model': model, 'optimizer': optimizer,
                  'scheduler': lr_scheduler, 'grad_scaler': grad_scaler},
                 os.path.join(config.output_dir, 'latest.ckpt')
             )
-        if val_dataloader is not None:
+        if val_dataloader is not None and (epoch % config.eval_interval == 0 or epoch == num_epochs - 1):
             evaluate(
                 config, model, val_dataloader, data_preprocessor, evaluator,
                 epoch, lr_scheduler, visualizer
@@ -176,7 +179,7 @@ def train_one_epoch(
         visualizer.set_mode('train')
 
     L = len(dataloader)
-    log_interval = L // config.log_freq
+    log_interval = max(L // config.log_freq, 1)
     loss_dict = LossDict()
     start = time.time()
     data_end = time.time()
@@ -196,16 +199,19 @@ def train_one_epoch(
         if grad_scaler is not None:
             grad_scaler.scale(loss).backward()
             grad_scaler.unscale_(optimizer)
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 3.)
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
             grad_scaler.step(optimizer)
             grad_scaler.update()
         else:
             loss.backward()
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
             optimizer.step()
         
         batch_time = time.time() - end
         loss_dict.update(losses)
         evaluator.fetch(results)
+        if visualizer is not None:
+            visualizer.fetch(results)
         if it % log_interval == 0 or it == L - 1:
             if len(optimizer.param_groups) > 1:
                 lr = [f'{group["lr"]:.3g}' for group in optimizer.param_groups]
@@ -223,11 +229,12 @@ def train_one_epoch(
         
         data_end = time.time()
 
-    metrics = evaluator.evaluate()
-    msg = ''
-    for k, v in metrics.items():
-        msg += f' {k}: {v:.3f}'
-    logger.info(msg.strip())
+    metrics = evaluator.evaluate(training=True)
+    if len(metrics) > 0:
+        msg = ''
+        for k, v in metrics.items():
+            msg += f' {k}: {v:.3f}'
+        logger.info(msg.strip())
 
     epoch_time = time.time() - start
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
@@ -254,9 +261,8 @@ def evaluate(
     model.eval()
     if visualizer is not None:
         visualizer.set_mode('eval')
-    loss_dict = LossDict()
     L = len(dataloader)
-    log_interval = L // config.log_freq
+    log_interval = max(L // config.log_freq, 1)
 
     start = time.time()
     data_end = time.time()
@@ -266,11 +272,11 @@ def evaluate(
         data_time = time.time() - data_end
 
         with torch.cuda.amp.autocast(enabled=config.use_amp):
-            results = model(samples, mode='loss')
-
-        loss_dict.update(results['losses'])
+            results = model(samples, mode='predict')
 
         evaluator.fetch(results)
+        if visualizer is not None:
+            visualizer.fetch(results)
         
         batch_time = time.time() - end
         end = time.time()
@@ -278,7 +284,7 @@ def evaluate(
         if it % log_interval == 0 or it == L - 1:
             memory_used = torch.cuda.max_memory_reserved() / (1024.0 * 1024.0)
             logger.info(
-                f'Val [{epoch}][{it}/{L - 1}]  {loss_dict}'
+                f'Val [{epoch}][{it}/{L - 1}]'
                 f'  time: {batch_time:.2f} (data {data_time:.2f})  mem: {memory_used:.0f}MB'
             )
         
@@ -305,7 +311,6 @@ def evaluate(
 
     if visualizer is not None:
         vis_data = {
-            'losses': {k: v.avg for k, v in loss_dict.avgs.items()},
             'metrics': {k: v for k, v in metrics.items()},
             'last_batch': results
         }

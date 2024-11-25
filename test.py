@@ -33,11 +33,11 @@ def setup_environment(args):
     config = None
     if args.rank == 0:
         config = OmegaConf.load(args.cfg)
-        config.merge_with(args.__dict__)
     sync_objs = [config]
     dist.broadcast_object_list(sync_objs, src=0)
     config = sync_objs[0]
 
+    config.merge_with(args.__dict__)
     logger.info(f'Config\n{OmegaConf.to_yaml(config, resolve=True)}')
 
     ### set seed

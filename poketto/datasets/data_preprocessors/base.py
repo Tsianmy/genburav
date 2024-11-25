@@ -1,7 +1,7 @@
 import torch
 
 class BaseDataPreprocessor:
-    def __init__(self, non_blocking=False):
+    def __init__(self, non_blocking=False, **kwargs):
         self._non_blocking = non_blocking
         self._device = torch.cuda.current_device() if torch.cuda.is_available() else 'cpu'
     

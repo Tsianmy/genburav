@@ -1,0 +1,40 @@
+#python run.py train --devs 0 --cfg configs/simddpm_swrissroll.yaml --eval_interval 100 --log_freq 1 --ckpt_interval 1000
+model:
+  type: SimDDPM
+  in_chs: 2
+  num_steps: 100
+dataset_type: SwissRoll
+collate_keys: [gt]
+data_preprocessor:
+  type: VecDataPreprocessor
+train_dataloader:
+  batch_size: 128
+  sampler:
+    type: DistributedSampler
+    shuffle: true
+  collate_keys: ${collate_keys}
+  dataset:
+    type: ${dataset_type}
+    test_mode: false
+val_dataloader:
+  batch_size: 10000
+  sampler:
+    type: DistributedSampler
+    shuffle: false
+  collate_keys: ${collate_keys}
+  dataset:
+    type: ${dataset_type}
+    test_mode: true
+evaluator:
+  type: Evaluator
+  metrics:
+  - type: ChamferDistance
+train_epochs: 2000
+optimizer:
+  type: Adam
+  lr: 1.0e-3
+visualizer:
+  type: VecDiffusionVisualizer
+  use_tensorboard: true
+seed: 0
+use_amp: false

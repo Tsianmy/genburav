@@ -48,13 +48,16 @@ def new_sampler(cfg_sampler, dataset):
 
     return sampler
 
-def new_dataloader(cfg_dataloader, sampler_seed=None):
+def new_dataloader(cfg_dataloader, sampler_seed=0):
     cfg_dataset = cfg_dataloader.pop('dataset')
     dataset = new_dataset(cfg_dataset)
 
     cfg_sampler = cfg_dataloader.pop('sampler', None)
-    cfg_sampler['seed'] = cfg_sampler.get('seed', sampler_seed)
-    sampler = new_sampler(cfg_sampler, dataset) if cfg_sampler is not None else None
+    if cfg_sampler is not None:
+        cfg_sampler['seed'] = cfg_sampler.get('seed', sampler_seed)
+        sampler = new_sampler(cfg_sampler, dataset)
+    else:
+        sampler = None
 
     collate_keys = cfg_dataloader.pop('collate_keys', [])
     collate_fn = datasets.get_collate_fn(collate_keys)
@@ -93,7 +96,7 @@ def new_batch_aug(cfg_batch_aug):
 
 def new_data_preprocessor(cfg_data_preprocessor):
     cfg_batch_aug = cfg_data_preprocessor.pop('batch_aug', None)
-    batch_aug = new_batch_aug(cfg_batch_aug)
+    batch_aug = new_batch_aug(cfg_batch_aug) if cfg_batch_aug is not None else None
     data_preprocessor = _new_obj(
         data_preprocessors, cfg_data_preprocessor, batch_aug=batch_aug)
 

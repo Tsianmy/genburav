@@ -10,10 +10,21 @@ class Accuracy(Metric):
         else:
             self.topk = tuple(topk)
         self.metric_names = [f'top{i}' for i in self.topk]
+        self.valid = True
         
+    def reset(self):
+        for l in self.results.values():
+            l.clear()
+        self.valid = True
+
     def fetch(self, result):
-        self.results['pred'].append(result['pred'])
-        self.results['gt_label'].append(result['gt_label'])
+        try:
+            self.results['pred'].append(result['pred'].detach())
+            self.results['gt_label'].append(result['gt_label'])
+        except:
+            for l in self.results.values():
+                l.clear()
+            self.valid = False
     
     def compute_metrics(self):
         pred = torch.cat(self.results['pred'])
@@ -25,8 +36,6 @@ class Accuracy(Metric):
         for i, v in enumerate(acc):
             metrics[self.metric_names[i]] = v.item()
         
-        for l in self.results:
-            self.results[l].clear()
         return metrics
 
     @staticmethod

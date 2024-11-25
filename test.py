@@ -75,7 +75,7 @@ def evaluate(config, model, dataloader, data_preprocessor, evaluator):
     model.eval()
     batch_time = 0
     L = len(dataloader)
-    log_interval = L // config.log_freq
+    log_interval = max(L // config.log_freq, 1)
 
     end = time.time()
     for it, samples in enumerate(dataloader):

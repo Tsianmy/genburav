@@ -1,3 +1,10 @@
+""" Denoising Diffusion Probabilistic Models
+    - https://arxiv.org/abs/2006.11239
+Code reference: https://github.com/StarLight1212/Generative-models/tree/main/Diffusion-Model
+@Author: Alex
+@Date: 2022.Dec.6th
+Diffusion model
+"""
 import torch
 import torch.nn as nn
 

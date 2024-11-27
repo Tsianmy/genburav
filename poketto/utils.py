@@ -22,13 +22,13 @@ def create_logger(dist_rank=0, name=None):
 
     if dist_rank == 0:
         configure_logger(
-            logger, fmt='[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+            logger, fmt='[%(asctime)s %(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
         # init global logger
         if not glogger.hasHandlers():
             configure_logger(
                 glogger,
-                fmt='[%(asctime)s @%(module)s:%(lineno)d] %(message)s',
+                fmt='[%(asctime)s @%(module)s:%(lineno)d %(levelname)s] %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S'
             )
 

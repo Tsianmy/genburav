@@ -1,6 +1,7 @@
-from .imgclassification_visualizer import ImgClassificationVisualizer
+from .imgclassification_visualizer import ImgClsVisualizer
 from .vecdiffusion_visualizer import VecDiffusionVisualizer
+from .img_visualizer import ImgVisualizer
 
 __all__ = [
-    'ImgClassificationVisualizer', 'VecDiffusionVisualizer'
+    'ImgClsVisualizer', 'VecDiffusionVisualizer', 'ImgVisualizer'
 ]

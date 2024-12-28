@@ -1,9 +1,9 @@
 from torch import nn
-from timm.models.resnet import ResNet, BasicBlock, Bottleneck
+from timm.models.resnet import ResNet as ResNet_, BasicBlock, Bottleneck
 
 blocks = {'BasicBlock': BasicBlock, 'Bottleneck': Bottleneck}
 
-class ResNet(ResNet):
+class ResNet(ResNet_):
     def __init__(self, **kwargs):
         fc_bias = kwargs.pop('fc_bias', True)
         block = kwargs['block']

@@ -12,10 +12,10 @@ train_transforms:
 val_transforms: []
 collate_keys: [img, gt_label]
 data_preprocessor:
-  type: ImgDataPreprocessor
+  type: ImgClsDataPreprocessor
   minmax: false
-  mean: [129.304, 124.070, 112.434]
-  std: [68.170, 65.392, 70.418]
+  mean: [125.307, 122.950, 113.865]
+  std: [62.993, 62.089, 66.705]
   batch_aug:
     type: RandMixUpCutMix
     num_classes: ${num_classes}
@@ -65,7 +65,7 @@ scheduler:
   lr_min: 1.0e-6
   t_in_epochs: true
 visualizer:
-  type: ImgClassificationVisualizer
+  type: ImgClsVisualizer
   use_tensorboard: true
 seed: 0
 use_amp: true

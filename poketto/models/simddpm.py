@@ -31,7 +31,7 @@ class Decoder(nn.Module):
         return x
 
 class SimDDPM(nn.Module):
-    def __init__(self, in_chs, num_steps, num_units=128):
+    def __init__(self, in_channels, num_steps, num_units=128):
         super().__init__()
         self.num_steps = num_steps
         ### hyperparameters
@@ -48,7 +48,7 @@ class SimDDPM(nn.Module):
         self.one_minus_alphas_prod_sqrt = nn.Parameter(
             one_minus_alphas_prod.sqrt(), requires_grad=False)
         ### decoder
-        self.decoder = Decoder(in_chs, num_steps, num_units)
+        self.decoder = Decoder(in_channels, num_steps, num_units)
     
     def forward(self, data, mode='predict'):
         x0 = data['gt']
@@ -57,14 +57,18 @@ class SimDDPM(nn.Module):
             B = x0.shape[0]
             t = torch.randint(0, self.num_steps, size=(B // 2,), device=x0.device)
             t = torch.cat([t, self.num_steps - 1 - t], dim=0)
+            ### x_t ~ q(x_t|x_0)
             x = self.alphas_prod_sqrt[t].unsqueeze(-1) * x0 + \
                     self.one_minus_alphas_prod_sqrt[t].unsqueeze(-1) * noise
             pred_noise = self.decoder(x, t)
+            ### argmin E[D_{KL}(q(x_{t-1}|x_t,x_0) || p_\theta(x_{t-1}|x_t))]
+            ### = argmin E[||eps_0 - eps_\theta(x_t,t)||]
             data['losses'] = self.loss(pred_noise, noise)
         if mode == 'predict':
             with torch.no_grad():
                 xt = noise
                 for t in reversed(range(self.num_steps)):
+                    ### x_{t-1} ~ \mathcal{N}(\mu_\theta(x_t,t), \sigma_t)
                     pred_noise = self.decoder(xt, torch.tensor([t], device=xt.device))
                     noise_coeff = self.betas[t] / self.one_minus_alphas_prod_sqrt[t]
                     mean = (xt - noise_coeff * pred_noise) / self.alphas_sqrt[t]

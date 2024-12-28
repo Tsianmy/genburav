@@ -16,7 +16,7 @@ train_transforms:
 val_transforms: []
 collate_keys: [img, gt_label]
 data_preprocessor:
-  type: ImgDataPreprocessor
+  type: ImgClsDataPreprocessor
   minmax: false
   mean: [123.675, 116.28, 103.53]
   std: [58.395, 57.12, 57.375]
@@ -72,7 +72,7 @@ scheduler:
   lr_min: 1.0e-06
   t_in_epochs: true
 visualizer:
-  type: ImgClassificationVisualizer
+  type: ImgClsVisualizer
   use_tensorboard: true
 seed: 0
 use_amp: true

@@ -14,9 +14,7 @@ def parse_args():
     parser.add_argument('--cfg', required=True, metavar="FILE", help='path to config file', )
     parser.add_argument('--output_dir', default='outputs')
     parser.add_argument('--resume', type=str)
-    parser.add_argument('--eval_interval', type=int, default=1)
     parser.add_argument('--log_freq', type=int, default=2)
-    parser.add_argument('--ckpt_interval', type=int, default=1)
     parser.add_argument('override_cfg', nargs=argparse.REMAINDER)
 
     args = parser.parse_args()
@@ -130,12 +128,16 @@ def train(
     logger.info(f"number of params: {num_params / 1e6}M")
 
     start_epoch = getattr(config, 'start_epoch', 0)
-    if start_epoch > 0 and val_dataloader is not None:
+    ckpt_interval = getattr(config, 'ckpt_interval', 1)
+    eval_interval = getattr(config, 'eval_interval', 1)
+    num_epochs = config.train_epochs
+    if start_epoch > 0 and val_dataloader is not None and (
+        start_epoch % eval_interval == 0 or start_epoch == num_epochs - 1
+    ):
         evaluate(
             config, model, val_dataloader, data_preprocessor, evaluator,
             start_epoch - 1, lr_scheduler, visualizer
         )
-    num_epochs = config.train_epochs
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(start_epoch, num_epochs):
@@ -146,14 +148,14 @@ def train(
             optimizer, epoch, evaluator, lr_scheduler, grad_scaler,
             visualizer
         )
-        if config.rank == 0 and (epoch % config.ckpt_interval == 0 or epoch == num_epochs - 1):
+        if config.rank == 0 and (epoch % ckpt_interval == 0 or epoch == num_epochs - 1):
             save_checkpoint(
                 {'epoch': epoch, 'rng': rng_manager,
                  'model': model, 'optimizer': optimizer,
                  'scheduler': lr_scheduler, 'grad_scaler': grad_scaler},
                 os.path.join(config.output_dir, 'latest.ckpt')
             )
-        if val_dataloader is not None and (epoch % config.eval_interval == 0 or epoch == num_epochs - 1):
+        if val_dataloader is not None and (epoch % eval_interval == 0 or epoch == num_epochs - 1):
             evaluate(
                 config, model, val_dataloader, data_preprocessor, evaluator,
                 epoch, lr_scheduler, visualizer
@@ -245,7 +247,7 @@ def train_one_epoch(
             'metrics': {k: v for k, v in metrics.items()},
             'last_batch': results
         }
-        visualizer.add_data(vis_data, dataloader.dataset, epoch)
+        visualizer.add_data(vis_data, dataloader.dataset, epoch, data_preprocessor=data_preprocessor)
 
 @torch.no_grad()
 def evaluate(
@@ -314,7 +316,7 @@ def evaluate(
             'metrics': {k: v for k, v in metrics.items()},
             'last_batch': results
         }
-        visualizer.add_data(vis_data, dataloader.dataset, epoch)
+        visualizer.add_data(vis_data, dataloader.dataset, epoch, data_preprocessor=data_preprocessor)
 
     return metrics, best_metrics
 

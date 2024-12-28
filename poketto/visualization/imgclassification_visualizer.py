@@ -1,31 +1,12 @@
 import matplotlib.pyplot as plt
 from .base import BaseVisualizer
-from poketto.utils import glogger
 from .utils import matplotlib_imshow
 
-class ImgClassificationVisualizer(BaseVisualizer):
+class ImgClsVisualizer(BaseVisualizer):
     def __init__(self, save_dir, use_tensorboard=False, tb_log_metrics=None):
-        self.save_dir = save_dir
-        self.mode = 'eval'
-        self.tb_writer = None
-        if use_tensorboard:
-            glogger.info(f'[{self.__class__.__name__}] use Tensorboard')
-            try:
-                from torch.utils.tensorboard import SummaryWriter
-                self.tb_writer = SummaryWriter(self.save_dir)
-                layout = {'losses': {'train': ['Multiline', ['train/loss*']]}}
-                if tb_log_metrics is not None:
-                    layout['metrics'] = {
-                        k: ['Multiline', [f'^(train|eval)/{k}']] for k in tb_log_metrics}
-                self.tb_writer.add_custom_scalars(layout)
-            except:
-                glogger.warning(f'[{self.__class__.__name__}] Tensorboard not available')
+        super().__init__(save_dir, use_tensorboard, tb_log_metrics)
     
-    def set_mode(self, name='eval'):
-        assert name in ['train', 'eval']
-        self.mode = name
-    
-    def add_data(self, data, dataset, step):
+    def add_data(self, data, dataset, step, **kwargs):
         if 'losses' in data:
             for k, v in data['losses'].items():
                 self.add_scalar(f'{self.mode}/{k}', v, step)

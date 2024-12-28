@@ -1,7 +1,7 @@
-#python run.py train --devs 0 --cfg configs/simddpm_swrissroll.yaml --eval_interval 100 --log_freq 1 --ckpt_interval 1000
+#python run.py train --devs 0 --cfg configs/simddpm_swrissroll.yaml --log_freq 1
 model:
   type: SimDDPM
-  in_chs: 2
+  in_channels: 2
   num_steps: 100
 dataset_type: SwissRoll
 collate_keys: [gt]
@@ -38,3 +38,5 @@ visualizer:
   use_tensorboard: true
 seed: 0
 use_amp: false
+eval_interval: 100
+ckpt_interval: ${train_epochs}

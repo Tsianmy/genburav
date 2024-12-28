@@ -1,0 +1,52 @@
+model:
+  type: VQVAE
+  in_channels: 3
+  sampling_hidden_dim: 128
+  res_hidden_dim: 32
+  num_sampling: 2
+  num_res_block: 2
+  embedding_dim: 64
+  num_embedding: 512
+  use_ema: true
+  ema_decay: 0.99
+dataset_type: CIFAR10
+collate_keys: [img]
+data_preprocessor:
+  type: ImgDataPreprocessor
+  minmax: false
+  mean: [125.307, 122.950, 113.865]
+  std: [62.993, 62.089, 66.705]
+data_root: data/cifar10
+train_dataloader:
+  batch_size: 32
+  sampler:
+    type: DistributedSampler
+    shuffle: true
+  collate_keys: ${collate_keys}
+  dataset:
+    type: ${dataset_type}
+    data_root: ${data_root}
+    test_mode: false
+val_dataloader:
+  batch_size: 1024
+  sampler:
+    type: DistributedSampler
+    shuffle: false
+  collate_keys: ${collate_keys}
+  dataset:
+    type: ${dataset_type}
+    data_root: ${data_root}
+    test_mode: true
+evaluator:
+  type: Evaluator
+train_epochs: 7
+optimizer:
+  type: Adam
+  lr: 3.0e-4
+visualizer:
+  type: ImgVisualizer
+  use_tensorboard: true
+seed: 0
+use_amp: false
+eval_interval: ${train_epochs}
+ckpt_interval: ${train_epochs}

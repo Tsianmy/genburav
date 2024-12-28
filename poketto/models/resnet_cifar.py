@@ -1,10 +1,10 @@
 import torch
 from torch import nn
-from timm.models.resnet import ResNet, BasicBlock, Bottleneck, checkpoint_seq
+from timm.models.resnet import ResNet as ResNet_, BasicBlock, Bottleneck, checkpoint_seq
 
 blocks = {'BasicBlock': BasicBlock, 'Bottleneck': Bottleneck}
 
-class ResNet_CIFAR(ResNet):
+class ResNet_CIFAR(ResNet_):
     def __init__(self, **kwargs):
         block = kwargs['block']
         kwargs['block'] = blocks[block]

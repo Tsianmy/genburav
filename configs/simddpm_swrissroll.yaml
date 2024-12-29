@@ -19,7 +19,7 @@ train_dataloader:
 val_dataloader:
   batch_size: 10000
   sampler:
-    type: DistributedSampler
+    type: DistributedEvalSampler
     shuffle: false
   collate_keys: ${collate_keys}
   dataset:

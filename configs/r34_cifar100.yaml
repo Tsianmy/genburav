@@ -30,7 +30,7 @@ train_dataloader:
   batch_size: 256
   num_workers: 4
   sampler:
-    type: DistributedSampler
+    type: DistributedEvalSampler
     shuffle: true
   collate_keys: ${collate_keys}
   dataset:

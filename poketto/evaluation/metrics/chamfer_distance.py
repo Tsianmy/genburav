@@ -38,11 +38,16 @@ class ChamferDistance(Metric):
     def calculate(self, pred, target):
         assert pred.size() == target.size()
         assert pred.ndim == 2
-        batch_size = pred.size(0)
-        sum_dis = self.calculator(pred[None, ...], target[None, ...], point_reduction='sum')
         if dist.is_initialized() and dist.get_world_size() > 1:
-            dist.all_reduce(sum_dis)
-            dist.all_reduce(batch_size)
+            world_size = dist.get_world_size()
+            pred_list = [torch.zeros_like(pred) for _ in range(world_size)]
+            target_list = [torch.zeros_like(target) for _ in range(world_size)]
+            dist.all_gather(pred_list, pred)
+            dist.all_gather(target_list, target)
+            pred = torch.cat(pred_list)
+            target = torch.cat(target_list)
+        sum_dis = self.calculator(pred[None, ...], target[None, ...], point_reduction='sum')
+        batch_size = pred.size(0)
         mean_dis = sum_dis / batch_size * 100
         return [mean_dis]
 

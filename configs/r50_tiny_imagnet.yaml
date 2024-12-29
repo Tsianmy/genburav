@@ -45,7 +45,7 @@ val_dataloader:
   batch_size: 512
   num_workers: 4
   sampler:
-    type: DistributedSampler
+    type: DistributedEvalSampler
     shuffle: false
   collate_keys:
   - img

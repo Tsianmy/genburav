@@ -2,6 +2,7 @@ import os
 import argparse
 import itertools
 import time
+import random
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -87,9 +88,9 @@ if __name__ == '__main__':
     args, others = parse_args()
     devices = ','.join([str(int(idx)) for idx in args.devices.split(',')])
     proc_num = (len(devices) + 1) // 2
+    port = random.randint(20000, 30000)
     cmd = (f"CUDA_VISIBLE_DEVICES={devices} torchrun --nproc_per_node={proc_num} "
-           f"--rdzv_backend=static {args.task}.py --cfg='{args.cfg}' ")
-    cmd += ' '.join(f"'{a}'" for a in others)
+           f"--rdzv-endpoint=localhost:{port} {args.task}.py --cfg='{args.cfg}'")
     if args.search_opts:
         for override_options in parse_options(args.search_opts):
             output_dir = os.path.join(
@@ -99,7 +100,9 @@ if __name__ == '__main__':
             )
             comments = [option2comment(o) for o in override_options]
             output_dir += '-' + ','.join(comments)
-            override_cfg = ' '.join([f"'{o}'" for o in override_options])
+            override_cfg = ' '.join(
+                [f"'{a}'" for a in others] + [f"'{o}'" for o in override_options]
+            )
 
             cmd_ = cmd + f" --output_dir '{output_dir}' {override_cfg}"
             print('+', cmd_ + '\n')
@@ -112,6 +115,7 @@ if __name__ == '__main__':
             os.path.splitext(os.path.basename(args.cfg))[0],
             time.strftime("%y%m%d_%H%M%S", time.localtime())
         )
-        cmd += f" --output_dir '{output_dir}'"
+        override_cfg = ' '.join(f"'{a}'" for a in others)
+        cmd += f" --output_dir '{output_dir}' {override_cfg}"
         print('+', cmd + '\n')
         os.system(cmd)

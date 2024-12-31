@@ -27,10 +27,12 @@ class ImgDataPreprocessor(BaseDataPreprocessor):
         img = img.float()
         if self.minmax:
             img.div_(255.)
+            data['minmax'] = True
         if self._normalize:
             mean = torch.tensor(self.mean, device=self._device).view(-1, 1, 1)
             std = torch.tensor(self.std, device=self._device).view(-1, 1, 1)
             img.sub_(mean).div_(std)
+            data['norm'] = dict(mean=self.mean, std=self.std)
         if training and self.batch_aug is not None:
             img = self.batch_aug(img)
 

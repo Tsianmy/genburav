@@ -57,6 +57,7 @@ evaluator:
   metrics:
   - type: Accuracy
     topk: [1, 5]
+  eval_mode_only: false
 train_epochs: 200
 optimizer:
   type: SGD

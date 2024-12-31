@@ -195,7 +195,6 @@ class VQVAE(nn.Module):
             in_channels, sampling_hidden_dim, res_hidden_dim,
             num_sampling, num_res_block, embedding_dim
         )
-        self.criterion = nn.MSELoss()
     
     def forward(self, data, mode='predict'):
         x = data['img']

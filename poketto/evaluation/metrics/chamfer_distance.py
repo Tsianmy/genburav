@@ -7,7 +7,6 @@ class ChamferDistance(Metric):
     def __init__(self):
         self.results = {'pred': [], 'gt': []}
         self.metric_names = ['Chamfer_distance']
-        self.calculator = Calculator()
         self.valid = True
     
     def reset(self):
@@ -35,7 +34,9 @@ class ChamferDistance(Metric):
             self.results[k].clear()
         return metrics
     
-    def calculate(self, pred, target):
+    @staticmethod
+    def calculate(pred, target):
+        calculator = Calculator()
         assert pred.size() == target.size()
         assert pred.ndim == 2
         if dist.is_initialized() and dist.get_world_size() > 1:
@@ -46,7 +47,7 @@ class ChamferDistance(Metric):
             dist.all_gather(target_list, target)
             pred = torch.cat(pred_list)
             target = torch.cat(target_list)
-        sum_dis = self.calculator(pred[None, ...], target[None, ...], point_reduction='sum')
+        sum_dis = calculator(pred[None, ...], target[None, ...], point_reduction='sum')
         batch_size = pred.size(0)
         mean_dis = sum_dis / batch_size * 100
         return [mean_dis]

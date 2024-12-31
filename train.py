@@ -177,6 +177,7 @@ def train_one_epoch(
     visualizer=None
 ):
     model.train()
+    evaluator.train()
     if visualizer is not None:
         visualizer.set_mode('train')
 
@@ -231,7 +232,7 @@ def train_one_epoch(
         
         data_end = time.time()
 
-    metrics = evaluator.evaluate(training=True)
+    metrics = evaluator.evaluate()
     if len(metrics) > 0:
         msg = ''
         for k, v in metrics.items():
@@ -247,7 +248,7 @@ def train_one_epoch(
             'metrics': {k: v for k, v in metrics.items()},
             'last_batch': results
         }
-        visualizer.add_data(vis_data, dataloader.dataset, epoch, data_preprocessor=data_preprocessor)
+        visualizer.add_data(vis_data, dataloader.dataset, epoch)
 
 @torch.no_grad()
 def evaluate(
@@ -261,6 +262,7 @@ def evaluate(
     visualizer=None
 ):
     model.eval()
+    evaluator.eval()
     if visualizer is not None:
         visualizer.set_mode('eval')
     L = len(dataloader)
@@ -316,7 +318,7 @@ def evaluate(
             'metrics': {k: v for k, v in metrics.items()},
             'last_batch': results
         }
-        visualizer.add_data(vis_data, dataloader.dataset, epoch, data_preprocessor=data_preprocessor)
+        visualizer.add_data(vis_data, dataloader.dataset, epoch)
 
     return metrics, best_metrics
 

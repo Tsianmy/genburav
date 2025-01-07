@@ -1,5 +1,5 @@
-from torch.optim import SGD, Adam
+from torch.optim import SGD, Adam, AdamW
 
 __all__ = [
-    'SGD', 'Adam'
+    'SGD', 'Adam', 'AdamW'
 ]

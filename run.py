@@ -69,16 +69,12 @@ def parse_options(options):
         yield no_search
 
 COM_FIRST_LEN = 8
-COM_LEN=3
-
-def trunc(chars, L):
-    if len(chars) > L:
-        chars = chars[:L] + '_'
-    return chars
+COM_LEN=5
 
 def option2comment(option):
     key, val = option.split('=', maxsplit=1)
     key_comps = key.split('.')
+    trunc = lambda x, L: x[:L]
     for i, comp in enumerate(key_comps):
         key_comps[i] = trunc(comp, COM_FIRST_LEN if i == 0 else COM_LEN)
     key = '.'.join(key_comps)

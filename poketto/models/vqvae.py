@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
+from poketto.utils import glogger
 
 class ExponentialMovingAverage(nn.Module):
     def __init__(self, decay, shape):
@@ -28,23 +29,33 @@ class ExponentialMovingAverage(nn.Module):
         return self.average
 
 class VectorQuantizer(nn.Module):
-    def __init__(self, num_embedding, embedding_dim, use_ema, decay=0.99, eps=1e-5):
+    def __init__(self, num_embedding, embedding_dim, use_ema, decay=0.99, eps=1e-5, eini=-1):
         super().__init__()
         self.num_embedding = num_embedding
         self.use_ema = use_ema
         self.eps = eps
-        limit = 3 ** 0.5
-        embedding = torch.zeros(num_embedding, embedding_dim, dtype=torch.float).uniform_(
-            -limit, limit
-        )
         if use_ema:
+            limit = 3 ** 0.5
+            embedding = torch.zeros(num_embedding, embedding_dim, dtype=torch.float).uniform_(
+                -limit, limit
+            )
             self.register_buffer('embedding', embedding)
             self.cluster_size_ema = ExponentialMovingAverage(decay, num_embedding)
             self.embedding_ema = ExponentialMovingAverage(
                 decay, (num_embedding, embedding_dim)
             )
         else:
+            if eini < 0:
+                limit = embedding_dim ** -0.5 / 36
+            elif eini > 0:
+                limit = eini
+            else:
+                limit = 0
+            embedding = torch.zeros(num_embedding, embedding_dim, dtype=torch.float).uniform_(
+                -limit, limit
+            )
             self.embedding = nn.Parameter(embedding)
+        glogger.debug(f'[{self.__class__.__name__}] eini: {eini}, limit: {limit}')
     
     @torch.no_grad()
     def update_ema(self, x, mapping_inds):
@@ -179,7 +190,8 @@ class VQVAE(nn.Module):
         alpha=1.0,
         beta=0.25,
         ema_decay=0.99,
-        ema_epsilon=1e-5
+        ema_epsilon=1e-5,
+        eini=-1
     ):
         super().__init__()
         self.alpha = alpha
@@ -189,7 +201,7 @@ class VQVAE(nn.Module):
             num_sampling, num_res_block, embedding_dim
         )
         self.vq = VectorQuantizer(
-            num_embedding, embedding_dim, use_ema, ema_decay, ema_epsilon
+            num_embedding, embedding_dim, use_ema, ema_decay, ema_epsilon, eini
         )
         self.decoder = Decoder(
             in_channels, sampling_hidden_dim, res_hidden_dim,
@@ -213,15 +225,15 @@ class VQVAE(nn.Module):
     
     def loss(self, pred, data, **precomp_losses):
         gt = data['img']
-        loss_recon = (gt - pred).square().mean() * self.alpha
+        loss_mse = (gt - pred).square().mean() * self.alpha
         precomp_losses['loss_commitment'] *= self.beta
-        total_loss = loss_recon
+        total_loss = loss_mse
         for loss in precomp_losses.values():
             total_loss = total_loss + loss
 
         return dict(
             loss=total_loss,
-            loss_recon=loss_recon,
+            loss_recon_mse=loss_mse,
             **precomp_losses
         )
 
@@ -232,6 +244,8 @@ if __name__ == '__main__':
         use_ema=True
     )
     print(model)
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'num_params: {num_params / 1e6} M')
     data = {'img': torch.rand(2, 3, 32, 32)}
     data = model(data, mode='loss')
     print(f"prediction: {data['pred'].shape}")

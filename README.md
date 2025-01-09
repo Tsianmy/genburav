@@ -4,7 +4,15 @@ Learning Pytorch.
 
 ## Installation
 
-To be completed.
+```
+conda env create -f environment.yml
+```
+
+or
+
+```
+pixi install
+```
 
 ## Quick Start
 
@@ -28,14 +36,12 @@ data/cifar10/
 ### Train
 
 ```
-cd genburav
 python run.py train --devs 0 --cfg configs/simnet_cifar10.yaml
 ```
 
 ### Test
 
 ```
-cd genburav
 python run.py test --devs 0 --cfg outputs/simnet_cifar10/xxxxxx_xxxxxx/simnet_cifar10.yaml --checkpoint outputs/simnet_cifar10/xxxxxx_xxxxxx/latest.ckpt
 ```
 
@@ -45,6 +51,12 @@ python run.py test --devs 0 --cfg outputs/simnet_cifar10/xxxxxx_xxxxxx/simnet_ci
 
 ```
 python run.py train --devices <DEVICES> --cfg <CONFIG PATH> [--output_dir <OUTPUT>] [--search_opts <OPTIONS> [<OPTIONS> ...]] [--resume <CHECKPOINT PATH>] [--log_freq <LOG FREQUENCY>]
+```
+
+or
+
+```
+pixi run train ...
 ```
 
 #### Example
@@ -69,6 +81,12 @@ python run.py train --devices 0,1 --cfg outputs/x/simnet_cifar10.yaml --resume o
 
 ```
 python run.py test --devices <DEVICES> --cfg <CONFIG PATH> --checkpoint <CHECKPOINT PATH> [--log_freq <LOG FREQUENCY>]
+```
+
+or
+
+```
+pixi run test ...
 ```
 
 #### Example

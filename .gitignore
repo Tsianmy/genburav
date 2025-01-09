@@ -152,6 +152,11 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# pixi environments
+.pixi
+*.egg-info
+pixi.lock
+
 # Custom
 .vscode/
 outputs/

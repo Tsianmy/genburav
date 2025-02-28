@@ -39,17 +39,12 @@ def setup_environment(args):
     print(f"RANK and WORLD_SIZE: {args.rank}/{args.world_size}")
 
     ### load config
-    config = None
+    config = OmegaConf.load(args.cfg)
+    OmegaConf.set_struct(config, False)
+    if args.override_cfg:
+        config.merge_with_dotlist(args.override_cfg)
     if args.rank == 0:
-        config = OmegaConf.load(args.cfg)
-        OmegaConf.set_struct(config, False)
-        if args.override_cfg:
-            config.merge_with_dotlist(args.override_cfg)
         OmegaConf.save(config, os.path.join(args.output_dir, os.path.basename(args.cfg)))
-    sync_objs = [config]
-    dist.broadcast_object_list(sync_objs, src=0)
-    config = sync_objs[0]
-
     config.merge_with({k: v for k, v in args.__dict__.items() if k != 'override_cfg'})
     logger.info(f'Config\n{OmegaConf.to_yaml(config, resolve=True)}')
 
@@ -96,7 +91,7 @@ def load_checkpoint(
     rng_manager=None
 ):
     with open(path_ckpt, 'rb') as f:
-        checkpoint = torch.load(f, map_location='cpu')
+        checkpoint = torch.load(f, map_location='cpu', weights_only=False)
     assert isinstance(checkpoint, dict), f'dict expected, but get {type(checkpoint)}'
 
     setattr(config, 'start_epoch', checkpoint['epoch'] + 1)
@@ -129,15 +124,13 @@ def train(
 
     start_epoch = getattr(config, 'start_epoch', 0)
     ckpt_interval = getattr(config, 'ckpt_interval', 1)
-    eval_interval = getattr(config, 'eval_interval', 1)
     num_epochs = config.train_epochs
-    if start_epoch > 0 and val_dataloader is not None and (
-        start_epoch % eval_interval == 0 or start_epoch == num_epochs - 1
-    ):
+    if start_epoch > 0 and val_dataloader is not None:
         evaluate(
             config, model, val_dataloader, data_preprocessor, evaluator,
             start_epoch - 1, lr_scheduler, visualizer
         )
+
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(start_epoch, num_epochs):
@@ -155,7 +148,7 @@ def train(
                  'scheduler': lr_scheduler, 'grad_scaler': grad_scaler},
                 os.path.join(config.output_dir, 'latest.ckpt')
             )
-        if val_dataloader is not None and (epoch % eval_interval == 0 or epoch == num_epochs - 1):
+        if val_dataloader is not None:
             evaluate(
                 config, model, val_dataloader, data_preprocessor, evaluator,
                 epoch, lr_scheduler, visualizer
@@ -177,7 +170,7 @@ def train_one_epoch(
     visualizer=None
 ):
     model.train()
-    evaluator.train()
+    evaluator.set_step(training=True, step=epoch, num_steps=config.train_epochs)
     if visualizer is not None:
         visualizer.set_mode('train')
 
@@ -192,7 +185,7 @@ def train_one_epoch(
         data_time = time.time() - data_end
         optimizer.zero_grad()
 
-        with torch.cuda.amp.autocast(enabled=config.use_amp):
+        with torch.amp.autocast('cuda', enabled=config.use_amp):
             results = model(samples, mode='loss')
 
         losses = results['losses']
@@ -212,7 +205,7 @@ def train_one_epoch(
         
         batch_time = time.time() - end
         loss_dict.update(losses)
-        evaluator.fetch(results)
+        evaluator.update(results)
         if visualizer is not None:
             visualizer.fetch(results)
         if it % log_interval == 0 or it == L - 1:
@@ -225,11 +218,11 @@ def train_one_epoch(
                 f'Train [{epoch}][{it}/{L - 1}]  lr: {lr}  {loss_dict}  grad_norm: {grad_norm:.2f}'
                 f'  time: {batch_time:.2f} (data {data_time:.2f})  mem: {memory_used:.0f}MB'
             )
-        end = time.time()
 
         if lr_scheduler is not None:
             lr_scheduler.step_update(epoch * L + it + 1)
         
+        end = time.time()
         data_end = time.time()
 
     metrics = evaluator.evaluate()
@@ -239,9 +232,6 @@ def train_one_epoch(
             msg += f' {k}: {v:.3f}'
         logger.info(msg.strip())
 
-    epoch_time = time.time() - start
-    logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
-
     if visualizer is not None:
         vis_data = {
             'losses': {k: v.avg for k, v in loss_dict.avgs.items()},
@@ -249,6 +239,9 @@ def train_one_epoch(
             'last_batch': results
         }
         visualizer.add_data(vis_data, dataloader.dataset, epoch)
+
+    epoch_time = time.time() - start
+    logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
 @torch.no_grad()
 def evaluate(
@@ -261,8 +254,10 @@ def evaluate(
     lr_scheduler=None,
     visualizer=None
 ):
+    evaluator.set_step(training=False, step=epoch, num_steps=config.train_epochs)
+    if not evaluator.ready():
+        return
     model.eval()
-    evaluator.eval()
     if visualizer is not None:
         visualizer.set_mode('eval')
     L = len(dataloader)
@@ -275,10 +270,10 @@ def evaluate(
         samples = data_preprocessor(samples, training=False)
         data_time = time.time() - data_end
 
-        with torch.cuda.amp.autocast(enabled=config.use_amp):
+        with torch.amp.autocast('cuda', enabled=config.use_amp):
             results = model(samples, mode='predict')
 
-        evaluator.fetch(results)
+        evaluator.update(results)
         if visualizer is not None:
             visualizer.fetch(results)
         
@@ -309,9 +304,6 @@ def evaluate(
 
     if lr_scheduler is not None and getattr(lr_scheduler, 'need_metric', False):
         lr_scheduler.metric = metrics[evaluator.primary_metric_key]
-        
-    val_time = time.time() - start
-    logger.info(f"evaluating takes {datetime.timedelta(seconds=int(val_time))}")
 
     if visualizer is not None:
         vis_data = {
@@ -320,7 +312,8 @@ def evaluate(
         }
         visualizer.add_data(vis_data, dataloader.dataset, epoch)
 
-    return metrics, best_metrics
+    val_time = time.time() - start
+    logger.info(f"evaluating takes {datetime.timedelta(seconds=int(val_time))}")
 
 if __name__ == '__main__':
     args = parse_args()
@@ -356,7 +349,7 @@ if __name__ == '__main__':
     evaluator = factory.new_evaluator(config.evaluator)
 
     logger.info(f'building GradScaler')
-    grad_scaler = torch.cuda.amp.grad_scaler.GradScaler(enabled=config.use_amp)
+    grad_scaler = torch.amp.GradScaler('cuda', enabled=config.use_amp)
     
     visualizer = None
     if config.rank == 0 and getattr(config, 'visualizer', None) is not None:

@@ -1,3 +1,6 @@
+import os
+import matplotlib
+import numpy as np
 import torch
 import torchvision
 from .base import BaseVisualizer
@@ -39,3 +42,19 @@ class ImgVisualizer(BaseVisualizer):
     def add_image(self, name, image, step):
         if self.tb_writer is not None:
             self.tb_writer.add_image(name, image, step)
+
+    def save(self, data, index=0):
+        img = data['img']
+        if 'norm' in data:
+            mean = torch.tensor(data['norm']['mean'], device=img.device).view(-1, 1, 1)
+            std = torch.tensor(data['norm']['std'], device=img.device).view(-1, 1, 1)
+            img = img * std + mean
+        if 'minmax' in data:
+            img = img * 255.
+        img = img.clip(0, 255).permute(0, 2, 3, 1).cpu().numpy().astype(np.uint8)
+        save_dir = os.path.join(self.save_dir, 'generation')
+        os.makedirs(save_dir, exist_ok=True)
+        for k, im in enumerate(img):
+            matplotlib.pyplot.imsave(
+                os.path.join(save_dir, f'{index + k:04d}.png'), im
+            )

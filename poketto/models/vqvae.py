@@ -76,7 +76,7 @@ class VectorQuantizer(nn.Module):
         self.embedding = self.embedding_ema.average / cluster_size_stable[..., None]
     
     def forward(self, x):
-        with torch.cuda.amp.autocast(enabled=False):
+        with torch.amp.autocast('cuda', enabled=False):
             ### (N, M)
             dis = torch.cdist(
                 x.detach()[None, ...], self.embedding.detach()[None, ...]).squeeze(0)

@@ -23,7 +23,8 @@ def new_model(cfg_model):
     pretrain = cfg_model.pop('pretrain', None)
     model = _new_obj(models, cfg_model)
     if pretrain is not None:
-        state_dict = torch.load(pretrain, map_location='cpu')
+        with open(pretrain, 'rb') as f:
+            state_dict = torch.load(f, map_location='cpu')
         glogger.info(f'load pretrained model {pretrain}')
         missing, unexpected = model.load_state_dict(state_dict, strict=False)
         glogger.info(f'missing keys: {missing}')

@@ -19,11 +19,14 @@ class BaseVisualizer:
                 glogger.warning(f'[{self.__class__.__name__}] Tensorboard not available')
     
     def set_mode(self, name='eval'):
-        assert name in ['train', 'eval']
+        assert name in ('train', 'eval', 'infer')
         self.mode = name
 
     def fetch(self, data, *args, **kwargs):
         pass
     
     def add_data(self, data, *args, **kwargs):
+        pass
+    
+    def save(self, data, *args, **kwargs):
         pass

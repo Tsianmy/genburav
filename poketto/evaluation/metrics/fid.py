@@ -1,160 +1,123 @@
 import torch
 import torch.distributed as dist
-import pytorch_fid.fid_score as fid
-import numpy as np
 from .base_metric import Metric
-
-def get_activations(dataset, model, batch_size=50, dims=2048, device='cpu',
-                    num_workers=1):
-    """Calculates the activations of the pool_3 layer for all images.
-
-    Params:
-    -- dataset     : Image tensors
-    -- model       : Instance of inception model
-    -- batch_size  : Batch size of images for the model to process at once.
-                     Make sure that the number of samples is a multiple of
-                     the batch size, otherwise some samples are ignored. This
-                     behavior is retained to match the original FID score
-                     implementation.
-    -- dims        : Dimensionality of features returned by Inception
-    -- device      : Device to run calculations
-    -- num_workers : Number of parallel dataloader workers
-
-    Returns:
-    -- A numpy array of dimension (num images, dims) that contains the
-       activations of the given tensor when feeding inception with the
-       query tensor.
-    """
-    model.eval()
-
-    if batch_size > len(dataset):
-        print(('Warning: batch size is bigger than the data size. '
-               'Setting batch size to data size'))
-        batch_size = len(dataset)
-
-    dataloader = torch.utils.data.DataLoader(dataset,
-                                             batch_size=batch_size,
-                                             shuffle=False,
-                                             drop_last=False,
-                                             num_workers=num_workers)
-
-    pred_arr = np.empty((len(dataset), dims))
-
-    start_idx = 0
-
-    for batch in dataloader:
-        batch = batch.to(device)
-
-        pred = model(batch)[0]
-
-        # If model output is not scalar, apply global spatial average pooling.
-        # This happens if you choose a dimensionality not equal 2048.
-        if pred.size(2) != 1 or pred.size(3) != 1:
-            pred = fid.adaptive_avg_pool2d(pred, output_size=(1, 1))
-
-        pred = pred.squeeze(3).squeeze(2).cpu().numpy()
-
-        pred_arr[start_idx:start_idx + pred.shape[0]] = pred
-
-        start_idx = start_idx + pred.shape[0]
-
-    return pred_arr
-
-def calculate_activation_statistics(dataset, model, batch_size=50, dims=2048,
-                                    device='cpu', num_workers=1):
-    """Calculation of the statistics used by the FID.
-    Params:
-    -- dataset     : Image tensors
-    -- model       : Instance of inception model
-    -- batch_size  : The images numpy array is split into batches with
-                     batch size batch_size. A reasonable batch size
-                     depends on the hardware.
-    -- dims        : Dimensionality of features returned by Inception
-    -- device      : Device to run calculations
-    -- num_workers : Number of parallel dataloader workers
-
-    Returns:
-    -- mu    : The mean over samples of the activations of the pool_3 layer of
-               the inception model.
-    -- sigma : The covariance matrix of the activations of the pool_3 layer of
-               the inception model.
-    """
-    act = get_activations(dataset, model, batch_size, dims, device, num_workers)
-    mu = np.mean(act, axis=0)
-    sigma = np.cov(act, rowvar=False)
-    return mu, sigma
-
-@torch.inference_mode()
-def calculate_fid(fake_real, batch_size, device, dims, num_workers=1):
-    block_idx = fid.InceptionV3.BLOCK_INDEX_BY_DIM[dims]
-
-    model = fid.InceptionV3([block_idx]).to(device)
-
-    m1, s1 = calculate_activation_statistics(
-        fake_real[0], model, batch_size, dims, device, num_workers
-    )
-    m2, s2 = calculate_activation_statistics(
-        fake_real[1], model, batch_size, dims, device, num_workers
-    )
-    fid_value = fid.calculate_frechet_distance(m1, s1, m2, s2)
-
-    return fid_value
+from .inception import InceptionV3
 
 class FrechetInceptionDistance(Metric):
-    def __init__(self, batch_size=50, dims=2048):
-        self.results = {'fake': [], 'real': []}
-        self.metric_names = ['FID']
-        self.valid = True
+    def __init__(self, batch_size=0, dims=2048, use_amp=True):
         self.batch_size = batch_size
         self.dims = dims
+        self.use_amp = use_amp
+        block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[dims]
+        self.feature_net = InceptionV3([block_idx])
+        self.feature_net.eval()
+        self.metric_names = ['FID']
+        self.reset()
     
     def reset(self):
-        for l in self.results.values():
-            l.clear()
-        self.valid = True
+        self.fake_sum = 0
+        self.real_sum = 0
+        self.fake_sigma_sum = 0
+        self.real_sigma_sum = 0
+        self.num_fake_samples = 0
+        self.num_real_samples = 0
 
-    def fetch(self, result):
+    def update(self, data) -> bool:
         try:
-            fake, real = result['pred'].detach(), result['img']
-            if 'norm' in result:
-                mean = torch.tensor(result['norm']['mean'], device=fake.device).view(-1, 1, 1)
-                std = torch.tensor(result['norm']['std'], device=fake.device).view(-1, 1, 1)
-                fake = fake * std + mean
-                real = real * std + mean
-                if not 'minmax' in result:
-                    fake = fake / 255.
-                    real = real / 255.
-                fake = fake.clip(0, 1)
-                real = real.clip(0, 1)
-            self.results['fake'].append(fake)
-            self.results['real'].append(real)
+            fake, real = data['pred'].detach(), data['img'].detach()
         except:
-            for l in self.results.values():
-                l.clear()
-            self.valid = False
+            self.reset()
+            return False
+        if 'norm' in data:
+            mean = torch.tensor(data['norm']['mean'], device=fake.device).view(-1, 1, 1)
+            std = torch.tensor(data['norm']['std'], device=fake.device).view(-1, 1, 1)
+            fake = fake * std + mean
+            real = real * std + mean
+            if not 'minmax' in data:
+                fake = fake / 255.
+                real = real / 255.
+            fake = fake.clip(0, 1)
+            real = real.clip(0, 1)
+        fake_feat, real_feat = self.extract_feat(
+            fake, real, self.feature_net, batch_size=self.batch_size, use_amp=self.use_amp
+        )
+        self.fake_sum += fake_feat.sum(0)
+        self.fake_sigma_sum += torch.mm(fake_feat.t(), fake_feat)
+        self.num_fake_samples += fake.shape[0]
+        self.real_sum += real_feat.sum(0)
+        self.real_sigma_sum += torch.mm(real_feat.t(), real_feat)
+        self.num_real_samples += real.shape[0]
+        return True
 
-    def compute_metrics(self):
-        fake = torch.cat(self.results['fake'])
-        real = torch.cat(self.results['real'])
-        vals = self.calculate(fake, real, batch_size=self.batch_size, dims=self.dims)
+    def get_results(self):
+        states = [
+            self.fake_sum, self.fake_sigma_sum,
+            torch.tensor([self.num_fake_samples], device=self.fake_sum.device),
+            self.real_sum, self.real_sigma_sum,
+            torch.tensor([self.num_real_samples], device=self.fake_sum.device)
+        ]
+        if dist.is_initialized() and dist.get_world_size() > 1:
+            shapes = [tensor.shape for tensor in states]
+            concat_states = torch.cat([tensor.view(-1) for tensor in states])
+            dist.all_reduce(concat_states)
+            offset = 0
+            states = []
+            for shape in shapes:
+                numel = torch.prod(shape).item()
+                states.append(concat_states[offset:offset+numel].view(shape))
+                offset += numel
+        (
+            fake_sum, fake_sigma_sum, num_fake_samples,
+            real_sum, real_sigma_sum, num_real_samples
+        ) = states
+        mu1, sigma1, mu2, sigma2 = self.calculate_statistics(
+            fake_sum, fake_sigma_sum, num_fake_samples.item(),
+            real_sum, real_sigma_sum, num_real_samples.item()
+        )
+        fid_score = self.calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
+
+        vals = [fid_score]
         metrics = {}
         for i, val in enumerate(vals):
             metrics[self.metric_names[i]] = val.item()
-        for k in self.results:
-            self.results[k].clear()
+
         return metrics
     
     @staticmethod
-    def calculate(fake, real, **fid_args):
-        if dist.is_initialized() and dist.get_world_size() > 1:
-            raise NotImplementedError
-        else:
-            fid_args['batch_size'] = fid_args.get('batch_size', 50)
-            fid_args['dims'] = fid_args.get('dims', 2048)
-            fid_args['device'] = fake.device
-            fid_score = calculate_fid([fake.cpu(), real.cpu()], **fid_args)
-        return [fid_score]
+    def extract_feat(fake, real, model, **fid_args):
+        batch_size = fid_args.get('batch_size', 0)
+        if batch_size <= 0:
+            batch_size = max(fake.shape[0], real.shape[0])
+        use_amp = fid_args.get('use_amp', True)
+        device = fake.device
+        model.to(device)
 
+        with torch.autocast(device.type, enabled=use_amp):
+            with torch.inference_mode():
+                fake_feat = model.extract_feat(fake, batch_size)
+                real_feat = model.extract_feat(real, batch_size)
+        
+        return fake_feat.double(), real_feat.double()
+    
+    @staticmethod
+    def calculate_statistics(
+        fake_sum, fake_sigma_sum, num_fake_samples, real_sum, real_sigma_sum, num_real_samples
+    ):
+        m1, m2 = fake_sum / num_fake_samples, real_sum / num_real_samples
+        s1 = fake_sigma_sum - num_fake_samples * torch.outer(m1, m1)
+        s1 = s1 / (num_fake_samples - 1)
+        s2 = real_sigma_sum - num_real_samples * torch.outer(m2, m2)
+        s2 = s2 / (num_real_samples - 1)
+        return m1, s1, m2, s2
+    
+    @staticmethod
+    def calculate_frechet_distance(mu1, sigma1, mu2, sigma2):
+        a = (mu1 - mu2).square().sum(dim=-1)
+        b = sigma1.trace() + sigma2.trace()
+        c = torch.linalg.eigvals(sigma1 @ sigma2).sqrt().real.sum(dim=-1)
+
+        return a + b - 2 * c
+    
     @staticmethod
     def get_best(fid_score):
         return min(fid_score)

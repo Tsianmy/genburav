@@ -6,7 +6,7 @@ import random
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('task', choices=['train', 'test'])
+    parser.add_argument('task', choices=['train', 'test', 'infer'])
     parser.add_argument('--devices', '--devs', type=str, required=True)
     parser.add_argument('--cfg', type=str, required=True)
     parser.add_argument('--output_dir', type=str, default='outputs')
@@ -85,8 +85,11 @@ if __name__ == '__main__':
     devices = ','.join([str(int(idx)) for idx in args.devices.split(',')])
     proc_num = (len(devices) + 1) // 2
     port = random.randint(20000, 30000)
-    cmd = (f"CUDA_VISIBLE_DEVICES={devices} torchrun --nproc_per_node={proc_num} "
-           f"--rdzv-endpoint=localhost:{port} {args.task}.py --cfg='{args.cfg}'")
+    if args.task == 'infer':
+        torchrun = 'python'
+    else:
+        torchrun = f'torchrun --nproc_per_node={proc_num} --rdzv-endpoint=localhost:{port}'
+    cmd = (f"CUDA_VISIBLE_DEVICES={devices} {torchrun} {args.task}.py --cfg='{args.cfg}'")
     if args.search_opts:
         for override_options in parse_options(args.search_opts):
             output_dir = os.path.join(
@@ -106,11 +109,14 @@ if __name__ == '__main__':
             if ret != 0:
                 break
     else:
-        output_dir = os.path.join(
-            args.output_dir,
-            os.path.splitext(os.path.basename(args.cfg))[0],
-            time.strftime("%y%m%d_%H%M%S", time.localtime())
-        )
+        if args.task == 'train':
+            output_dir = os.path.join(
+                args.output_dir,
+                os.path.splitext(os.path.basename(args.cfg))[0],
+                time.strftime("%y%m%d_%H%M%S", time.localtime())
+            )
+        else:
+            output_dir = args.output_dir
         override_cfg = ' '.join(f"'{a}'" for a in others)
         cmd += f" --output_dir '{output_dir}' {override_cfg}"
         print('+', cmd + '\n')

@@ -29,6 +29,7 @@ evaluator:
   type: Evaluator
   metrics:
   - type: ChamferDistance
+  intervals: 100
 train_epochs: 2000
 optimizer:
   type: Adam
@@ -38,5 +39,4 @@ visualizer:
   use_tensorboard: true
 seed: 0
 use_amp: false
-eval_interval: 100
 ckpt_interval: ${train_epochs}

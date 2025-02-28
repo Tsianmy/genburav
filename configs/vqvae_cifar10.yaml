@@ -37,13 +37,14 @@ val_dataloader:
     type: ${dataset_type}
     data_root: ${data_root}
     test_mode: true
+train_epochs: 7
 evaluator:
   type: Evaluator
   metrics:
   - type: PeakSignalNoiseRatio
-#  - type: FrechetInceptionDistance
-#    batch_size: 500
-train_epochs: 7
+  - type: FrechetInceptionDistance
+    batch_size: 512
+  intervals: [1, "${train_epochs}"]
 optimizer:
   type: Adam
   lr: 3.0e-4
@@ -57,5 +58,4 @@ visualizer:
   use_tensorboard: true
 seed: 0
 use_amp: false
-# eval_interval: ${train_epochs}
 ckpt_interval: ${train_epochs}

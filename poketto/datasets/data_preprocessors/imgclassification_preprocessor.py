@@ -22,7 +22,7 @@ class ImgClsDataPreprocessor(BaseDataPreprocessor):
         self.to_onehot = to_onehot
         self.num_classes = num_classes
         self.label_smooth = label_smooth
-        if mean is not None:
+        if mean is not None or std is not None:
             self._normalize = True
         else:
             self._normalize = False

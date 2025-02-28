@@ -15,7 +15,7 @@ class ImgDataPreprocessor(BaseDataPreprocessor):
         self.minmax = minmax
         self.mean = mean
         self.std = std
-        if mean is not None:
+        if mean is not None or std is not None:
             self._normalize = True
         else:
             self._normalize = False

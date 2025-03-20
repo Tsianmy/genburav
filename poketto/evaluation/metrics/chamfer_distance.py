@@ -21,6 +21,7 @@ class ChamferDistance(Metric):
             return False
         return True
         
+    @torch.inference_mode()
     def get_results(self):
         pred = torch.cat(self.data['pred'])
         target = torch.cat(self.data['gt'])
@@ -31,6 +32,7 @@ class ChamferDistance(Metric):
         return metrics
     
     @staticmethod
+    @torch.inference_mode()
     def calculate(pred, target):
         calculator = Calculator()
         assert pred.size() == target.size()

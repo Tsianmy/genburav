@@ -15,15 +15,19 @@ class Accuracy(Metric):
         self.num_correct = 0
         self.num_samples = 0
 
+    @torch.inference_mode()
     def update(self, data) -> bool:
         pred, target = data['pred'].detach(), data['gt_label'].detach()
-        if len(target.shape) > 1:
-            target = target.argmax(1)
+        if pred.ndim > 2:
+            pred = pred.view(-1, pred.shape[-1])
+        if target.ndim > 1:
+            target = target.view(-1, target.shape[-1]).argmax(dim=-1)
         correct = self.calculate(pred, target, self.topk)
         self.num_correct += correct
         self.num_samples += pred.shape[0]
         return True
     
+    @torch.inference_mode()
     def get_results(self):
         metrics = {}
         correct, num_samples = self.num_correct.clone(), self.num_samples
@@ -38,6 +42,7 @@ class Accuracy(Metric):
         return metrics
 
     @staticmethod
+    @torch.inference_mode()
     def calculate(pred, target, topk):
         assert pred.shape[0] == target.shape[0], \
             f"The size of pred ({pred.shape[0]}) doesn't match "\
@@ -53,7 +58,7 @@ class Accuracy(Metric):
             pred = pred.float()
             maxk = min(max(topk), pred.shape[1])
 
-            pred_score, pred_label = pred.topk(maxk, dim=1)
+            pred_score, pred_label = pred.topk(maxk, dim=-1)
             pred_label = pred_label.t()
             correct = pred_label.eq(target.view(1, -1).expand_as(pred_label))
             correct_k = torch.zeros(len(topk), dtype=torch.int, device=correct.device)

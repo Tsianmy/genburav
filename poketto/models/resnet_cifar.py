@@ -31,12 +31,12 @@ class ResNet_CIFAR(ResNet_):
             x = self.layer4(x)
         return x
 
-    def forward(self, data, mode='predict'):
+    def forward(self, data, inference_mode=False):
         assert isinstance(data, dict)
         x = data['img']
         pred = super().forward(x)
         data['pred'] = pred
-        if mode == 'loss':
+        if self.training:
             data['losses'] = self.loss(pred, data)
 
         return data

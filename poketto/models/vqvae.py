@@ -16,7 +16,7 @@ class ExponentialMovingAverage(nn.Module):
         self.register_buffer('state', torch.zeros(shape, dtype=torch.float))
         self.register_buffer('average', torch.zeros(shape, dtype=torch.float))
     
-    @torch.no_grad()
+    @torch.inference_mode()
     def update(self, value):
         if dist.is_initialized() and dist.get_world_size() > 1:
             dist.all_reduce(value)
@@ -57,7 +57,7 @@ class VectorQuantizer(nn.Module):
             self.embedding = nn.Parameter(embedding)
         glogger.debug(f'[{self.__class__.__name__}] eini: {eini}, limit: {limit}')
     
-    @torch.no_grad()
+    @torch.inference_mode()
     def update_ema(self, x, mapping_inds):
         ### (M, N)
         mapping_onehot = F.one_hot(mapping_inds, self.num_embedding).float().T
@@ -208,7 +208,7 @@ class VQVAE(nn.Module):
             num_sampling, num_res_block, embedding_dim
         )
     
-    def forward(self, data, mode='predict'):
+    def forward(self, data, inference_mode=False):
         x = data['img']
         x = self.encoder(x)
         B, C, H ,W = x.shape
@@ -218,7 +218,7 @@ class VQVAE(nn.Module):
         x = x.view(B, H, W, C).permute(0, 3, 1, 2)
         x = self.decoder(x)
         data['pred'] = x
-        if mode == 'loss':
+        if self.training:
             data['losses'] = self.loss(x, data, **precomp_losses)
         
         return data
@@ -247,6 +247,6 @@ if __name__ == '__main__':
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'num_params: {num_params / 1e6} M')
     data = {'img': torch.rand(2, 3, 32, 32)}
-    data = model(data, mode='loss')
+    data = model(data)
     print(f"prediction: {data['pred'].shape}")
     print(f"losses: {data['losses']}")

@@ -11,6 +11,7 @@ class PeakSignalNoiseRatio(Metric):
         self.psnr_sum = 0
         self.num_samples = 0
 
+    @torch.inference_mode()
     def update(self, data) -> bool:
         try:
             pred, gt = data['pred'].detach(), data['img'].detach()
@@ -45,6 +46,7 @@ class PeakSignalNoiseRatio(Metric):
         return metrics
     
     @staticmethod
+    @torch.inference_mode()
     def calculate(pred: torch.Tensor, gt: torch.Tensor):
         assert pred.shape == gt.shape
         pred = pred.flatten(1)

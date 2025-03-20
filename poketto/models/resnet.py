@@ -13,12 +13,12 @@ class ResNet(ResNet_):
             self.fc = nn.Linear(self.num_features, self.num_classes, bias=False)
         self.criterion = nn.CrossEntropyLoss()
 
-    def forward(self, data, mode='predict'):
+    def forward(self, data, inference_mode=False):
         assert isinstance(data, dict)
         x = data['img']
         pred = super().forward(x)
         data['pred'] = pred
-        if mode == 'loss':
+        if self.training:
             data['losses'] = self.loss(pred, data)
 
         return data

@@ -64,7 +64,7 @@ def test(config, model, val_dataloader, data_preprocessor, evaluator):
     total_time = time.time() - start_time
     logger.info(f'Evaluating time {datetime.timedelta(seconds=int(total_time))}')
 
-@torch.no_grad()
+@torch.inference_mode()
 def evaluate(config, model, dataloader, data_preprocessor, evaluator):
     model.eval()
     batch_time = 0
@@ -75,7 +75,7 @@ def evaluate(config, model, dataloader, data_preprocessor, evaluator):
     for it, samples in enumerate(dataloader):
         samples = data_preprocessor(samples, training=False)
         with torch.amp.autocast('cuda', enabled=config.use_amp):
-            results = model(samples, mode='predict')
+            results = model(samples)
 
         evaluator.update(results)
         

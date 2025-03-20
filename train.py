@@ -186,7 +186,7 @@ def train_one_epoch(
         optimizer.zero_grad()
 
         with torch.amp.autocast('cuda', enabled=config.use_amp):
-            results = model(samples, mode='loss')
+            results = model(samples)
 
         losses = results['losses']
         loss = losses['loss']
@@ -243,7 +243,7 @@ def train_one_epoch(
     epoch_time = time.time() - start
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
-@torch.no_grad()
+@torch.inference_mode()
 def evaluate(
     config,
     model,
@@ -271,7 +271,7 @@ def evaluate(
         data_time = time.time() - data_end
 
         with torch.amp.autocast('cuda', enabled=config.use_amp):
-            results = model(samples, mode='predict')
+            results = model(samples)
 
         evaluator.update(results)
         if visualizer is not None:

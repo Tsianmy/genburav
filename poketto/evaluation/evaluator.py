@@ -43,7 +43,7 @@ class Evaluator:
     def ready(self):
         return any(metric.ready() for metric in self.metrics)
     
-    @torch.no_grad()
+    @torch.inference_mode()
     def update(self, data):
         if self.training and self.eval_mode_only:
             return
@@ -52,7 +52,7 @@ class Evaluator:
                 valid = metric.update(data)
                 metric.valid = valid
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def evaluate(self):
         eval_results = {}
         if self.training and self.eval_mode_only:

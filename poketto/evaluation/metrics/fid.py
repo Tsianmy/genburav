@@ -22,6 +22,7 @@ class FrechetInceptionDistance(Metric):
         self.num_fake_samples = 0
         self.num_real_samples = 0
 
+    @torch.inference_mode()
     def update(self, data) -> bool:
         try:
             fake, real = data['pred'].detach(), data['img'].detach()
@@ -49,6 +50,7 @@ class FrechetInceptionDistance(Metric):
         self.num_real_samples += real.shape[0]
         return True
 
+    @torch.inference_mode()
     def get_results(self):
         states = [
             self.fake_sum, self.fake_sigma_sum,
@@ -84,6 +86,7 @@ class FrechetInceptionDistance(Metric):
         return metrics
     
     @staticmethod
+    @torch.inference_mode()
     def extract_feat(fake, real, model, **fid_args):
         batch_size = fid_args.get('batch_size', 0)
         if batch_size <= 0:
@@ -93,13 +96,13 @@ class FrechetInceptionDistance(Metric):
         model.to(device)
 
         with torch.autocast(device.type, enabled=use_amp):
-            with torch.inference_mode():
-                fake_feat = model.extract_feat(fake, batch_size)
-                real_feat = model.extract_feat(real, batch_size)
+            fake_feat = model.extract_feat(fake, batch_size)
+            real_feat = model.extract_feat(real, batch_size)
         
         return fake_feat.double(), real_feat.double()
     
     @staticmethod
+    @torch.inference_mode()
     def calculate_statistics(
         fake_sum, fake_sigma_sum, num_fake_samples, real_sum, real_sigma_sum, num_real_samples
     ):
@@ -111,6 +114,7 @@ class FrechetInceptionDistance(Metric):
         return m1, s1, m2, s2
     
     @staticmethod
+    @torch.inference_mode()
     def calculate_frechet_distance(mu1, sigma1, mu2, sigma2):
         a = (mu1 - mu2).square().sum(dim=-1)
         b = sigma1.trace() + sigma2.trace()

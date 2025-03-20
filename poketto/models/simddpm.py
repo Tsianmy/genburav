@@ -50,10 +50,10 @@ class SimDDPM(nn.Module):
         ### decoder
         self.decoder = Decoder(in_channels, num_steps, num_units)
     
-    def forward(self, data, mode='predict'):
+    def forward(self, data, inference_mode=False):
         x0 = data['gt']
         noise = torch.randn(x0.shape, device=x0.device)
-        if mode == 'loss':
+        if self.training:
             B = x0.shape[0]
             t = torch.randint(0, self.num_steps, size=(B // 2,), device=x0.device)
             t = torch.cat([t, self.num_steps - 1 - t], dim=0)
@@ -64,18 +64,17 @@ class SimDDPM(nn.Module):
             ### argmin E[D_{KL}(q(x_{t-1}|x_t,x_0) || p_\theta(x_{t-1}|x_t))]
             ### = argmin E[||eps_0 - eps_\theta(x_t,t)||]
             data['losses'] = self.loss(pred_noise, noise)
-        if mode == 'predict':
-            with torch.no_grad():
-                xt = noise
-                for t in reversed(range(self.num_steps)):
-                    ### x_{t-1} ~ \mathcal{N}(\mu_\theta(x_t,t), \sigma_t)
-                    pred_noise = self.decoder(xt, torch.tensor([t], device=xt.device))
-                    noise_coeff = self.betas[t] / self.one_minus_alphas_prod_sqrt[t]
-                    mean = (xt - noise_coeff * pred_noise) / self.alphas_sqrt[t]
-                    sigma_t = self.betas_sqrt[t]
-                    z = torch.randn_like(xt)
-                    xt = mean + sigma_t * z
-                data['pred'] = xt
+        else:
+            xt = noise
+            for t in reversed(range(self.num_steps)):
+                ### x_{t-1} ~ \mathcal{N}(\mu_\theta(x_t,t), \sigma_t)
+                pred_noise = self.decoder(xt, torch.tensor([t], device=xt.device))
+                noise_coeff = self.betas[t] / self.one_minus_alphas_prod_sqrt[t]
+                mean = (xt - noise_coeff * pred_noise) / self.alphas_sqrt[t]
+                sigma_t = self.betas_sqrt[t]
+                z = torch.randn_like(xt)
+                xt = mean + sigma_t * z
+            data['pred'] = xt
         return data
     
     def loss(self, pred_noise, gt_noise):

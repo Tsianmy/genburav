@@ -508,16 +508,16 @@ class VAR_VQVAE(nn.Module):
         return self.decoder(self.post_quant_conv(f_hat)), usages, vq_loss
     # ===================== `forward` is only used in VAE training =====================
     
-    def forward(self, data, mode='predict', **kwargs):
+    def forward(self, data, inference_mode=False, **kwargs):
         x = data['img']
-        if mode == 'loss':
+        if inference_mode:
+            data['img'] = self.img_to_reconstructed_img(x, last_one=True)
+        elif self.training:
             x, usages, vq_loss = self.inner_forward(x, **kwargs)
             data['pred'] = x
             data['losses'] = self.loss(x, data, vq_loss)
-        elif mode == 'predict':
+        else:
             data['pred'] = self.img_to_reconstructed_img(x, last_one=True)
-        elif mode == 'inference':
-            data['img'] = self.img_to_reconstructed_img(x, last_one=True)
         return data
     
     def loss(self, pred, data, vq_loss):
@@ -577,10 +577,12 @@ if __name__ == '__main__':
     print(model)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'num_params: {num_params / 1e6} M')
+    model.train()
     data = {'img': torch.rand(2, 3, 32, 32)}
-    data = model(data, mode='loss')
+    data = model(data)
     print(f"prediction: {data['pred'].shape}")
     print(f"losses: {data['losses']}")
     data = {'img': torch.rand(2, 3, 32, 32)}
-    data = model(data, mode='predict')
+    model.eval()
+    data = model(data)
     print(f"\nprediction: {data['pred'].shape}")

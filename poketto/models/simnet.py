@@ -14,12 +14,12 @@ class SimNet(nn.Module):
         self.act = nn.ReLU(inplace=True)
         self.criterion = nn.CrossEntropyLoss()
     
-    def forward(self, data, mode='predict'):
+    def forward(self, data, inference_mode=False):
         assert isinstance(data, dict)
         x = data['img']
         pred = self._inner_forward(x)
         data['pred'] = pred
-        if mode == 'loss':
+        if self.training:
             data['losses'] = self.loss(pred, data)
 
         return data

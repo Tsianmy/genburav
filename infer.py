@@ -38,7 +38,7 @@ def load_model_checkpoint(path_ckpt, config, model):
 
     model.load_state_dict(checkpoint['model'])
 
-@torch.no_grad()
+@torch.inference_mode()
 def infer(config, model, dataloader, data_preprocessor, visualizer):
     num_params = sum(p.numel() for p in model.parameters())
     logger.info(f"number of params: {num_params / 1e6}M")
@@ -56,7 +56,7 @@ def infer(config, model, dataloader, data_preprocessor, visualizer):
     for it, samples in enumerate(dataloader):
         samples = data_preprocessor(samples, training=False)
         with torch.amp.autocast('cuda', enabled=config.use_amp):
-            results = model(samples, mode='inference')
+            results = model(samples, inference_mode=True)
 
         global_idx = it * dataloader.batch_size
         visualizer.save(results, index=global_idx)

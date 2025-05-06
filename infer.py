@@ -89,8 +89,9 @@ if __name__ == '__main__':
     if config.checkpoint:
         load_model_checkpoint(config.checkpoint, config, model)
 
-    logger.info(f'building visualizer {config.visualizer["type"]}')
-    config.visualizer.pop('use_tensorboard')
+    logger.info(f'building visualizer {config.visualizer.type}')
+    config.visualizer['use_tensorboard'] = False
+    config.visualizer['saving'] = True
     visualizer = factory.new_visualizer(config.visualizer, config.output_dir)
 
     infer(

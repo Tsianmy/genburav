@@ -70,3 +70,4 @@ visualizer:
   use_tensorboard: true
 seed: 0
 use_amp: true
+iters_to_accumulate: 1

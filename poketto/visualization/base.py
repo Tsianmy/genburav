@@ -1,9 +1,10 @@
 from poketto.utils import glogger
 
 class BaseVisualizer:
-    def __init__(self, save_dir, use_tensorboard=False, tb_log_metrics=None):
+    def __init__(self, save_dir, use_tensorboard=False, tb_log_metrics=None, saving=False):
         self.save_dir = save_dir
         self.mode = 'eval'
+        self.saving = saving
         self.tb_writer = None
         if use_tensorboard:
             glogger.info(f'[{self.__class__.__name__}] use Tensorboard')
@@ -29,4 +30,5 @@ class BaseVisualizer:
         pass
     
     def save(self, data, *args, **kwargs):
-        pass
+        if not self.saving:
+            return

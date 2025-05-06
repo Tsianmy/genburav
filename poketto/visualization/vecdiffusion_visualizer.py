@@ -38,7 +38,7 @@ class VecDiffusionVisualizer(BaseVisualizer):
                 ax.scatter(vecs[:, 0], vecs[:, 1], color='red', edgecolor='white')
                 ax.set_axis_off()
                 ax.set_title(
-                    f'$p_\mathbf{{\\theta}}(x_0|x_1)$',
+                    f'$p_\\mathbf{{\\theta}}(x_0|x_1)$',
                     fontdict={'fontsize': 36}
                 )
                 self.add_figure(f'{self.mode}/predictions', fig, step)

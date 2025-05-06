@@ -6,8 +6,8 @@ import torchvision
 from .base import BaseVisualizer
 
 class ImgVisualizer(BaseVisualizer):
-    def __init__(self, save_dir, use_tensorboard=False, tb_log_metrics=None):
-        super().__init__(save_dir, use_tensorboard, tb_log_metrics)
+    def __init__(self, save_dir, use_tensorboard=False, tb_log_metrics=None, saving=False):
+        super().__init__(save_dir, use_tensorboard, tb_log_metrics, saving)
         self.max_show = 8
     
     def add_data(self, data, dataset, step, **kwargs):
@@ -44,6 +44,8 @@ class ImgVisualizer(BaseVisualizer):
             self.tb_writer.add_image(name, image, step)
 
     def save(self, data, index=0):
+        if not self.saving:
+            return
         img = data['img']
         if 'norm' in data:
             mean = torch.tensor(data['norm']['mean'], device=img.device).view(-1, 1, 1)
@@ -52,7 +54,7 @@ class ImgVisualizer(BaseVisualizer):
         if 'minmax' in data:
             img = img * 255.
         img = img.clip(0, 255).permute(0, 2, 3, 1).cpu().numpy().astype(np.uint8)
-        save_dir = os.path.join(self.save_dir, 'generation')
+        save_dir = os.path.join(self.save_dir, 'viz')
         os.makedirs(save_dir, exist_ok=True)
         for k, im in enumerate(img):
             matplotlib.pyplot.imsave(

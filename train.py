@@ -70,13 +70,13 @@ def save_checkpoint(state, save_path):
     state['model'] = model
     optimizer = state['optimizer'].state_dict()
     state['optimizer'] = optimizer
-    scheduler = state.get('scheduler', None)
+    scheduler = state.get('scheduler')
     if scheduler is not None:
         state['scheduler'] = scheduler.state_dict()
-    grad_scaler = state.get('grad_scaler', None)
+    grad_scaler = state.get('grad_scaler')
     if grad_scaler is not None:
         state['grad_scaler'] = grad_scaler.state_dict()
-    rng = state.get('rng', None)
+    rng = state.get('rng')
     if rng is not None:
         state['rng'] = rng.state_dict()
     torch.save(state, save_path)
@@ -97,11 +97,11 @@ def load_checkpoint(
     setattr(config, 'start_epoch', checkpoint['epoch'] + 1)
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
-    if lr_scheduler is not None and checkpoint.get('scheduler', None) is not None:
+    if lr_scheduler is not None and checkpoint.get('scheduler') is not None:
         lr_scheduler.load_state_dict(checkpoint['scheduler'])
-    if grad_scaler is not None and checkpoint.get('grad_scaler', None) is not None:
+    if grad_scaler is not None and checkpoint.get('grad_scaler') is not None:
         grad_scaler.load_state_dict(checkpoint['grad_scaler'])
-    if rng_manager is not None and checkpoint.get('rng', None) is not None:
+    if rng_manager is not None and checkpoint.get('rng') is not None:
         rng_manager.load_state_dict(checkpoint['rng'])
 
 def train(
@@ -130,6 +130,8 @@ def train(
             config, model, val_dataloader, data_preprocessor, evaluator,
             start_epoch - 1, lr_scheduler, visualizer
         )
+    iters_to_accumulate = getattr(config, 'iters_to_accumulate', 1)
+    setattr(config, 'iters_to_accumulate', iters_to_accumulate)
 
     logger.info("Start training")
     start_time = time.time()
@@ -176,6 +178,8 @@ def train_one_epoch(
 
     L = len(dataloader)
     log_interval = max(L // config.log_freq, 1)
+    iters_to_accumulate = config.iters_to_accumulate
+    max_grad_norm = 1.
     loss_dict = LossDict()
     start = time.time()
     data_end = time.time()
@@ -183,25 +187,33 @@ def train_one_epoch(
     for it, samples in enumerate(dataloader):
         samples = data_preprocessor(samples, training=True)
         data_time = time.time() - data_end
-        optimizer.zero_grad()
+
+        require_backward_grad_sync = model.require_backward_grad_sync
+        if (it + 1) % iters_to_accumulate != 0:
+            model.require_backward_grad_sync = False
 
         with torch.amp.autocast('cuda', enabled=config.use_amp):
             results = model(samples)
 
         losses = results['losses']
-        loss = losses['loss']
+        loss = losses['loss'] / config.iters_to_accumulate
 
         grad_norm = 0
         if grad_scaler is not None:
             grad_scaler.scale(loss).backward()
-            grad_scaler.unscale_(optimizer)
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
-            grad_scaler.step(optimizer)
-            grad_scaler.update()
+            if (it + 1) % iters_to_accumulate == 0:
+                grad_scaler.unscale_(optimizer)
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+                grad_scaler.step(optimizer)
+                grad_scaler.update()
+                optimizer.zero_grad()
         else:
             loss.backward()
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
-            optimizer.step()
+            if (it + 1) % iters_to_accumulate == 0:
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+                optimizer.step()
+                optimizer.zero_grad()
+        model.require_backward_grad_sync = require_backward_grad_sync 
         
         batch_time = time.time() - end
         loss_dict.update(losses)
@@ -276,6 +288,7 @@ def evaluate(
         evaluator.update(results)
         if visualizer is not None:
             visualizer.fetch(results)
+            visualizer.save(results, it * dataloader.batch_size)
         
         batch_time = time.time() - end
         end = time.time()

@@ -3,9 +3,6 @@ from .base import BaseVisualizer
 from .utils import matplotlib_imshow
 
 class ImgClsVisualizer(BaseVisualizer):
-    def __init__(self, save_dir, use_tensorboard=False, tb_log_metrics=None):
-        super().__init__(save_dir, use_tensorboard, tb_log_metrics)
-    
     def add_data(self, data, dataset, step, **kwargs):
         if 'losses' in data:
             for k, v in data['losses'].items():

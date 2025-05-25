@@ -5,12 +5,14 @@ Learning Pytorch.
 ## Installation
 
 ```
+git submodule update --init --recursive
 conda env create -f environment.yml
 ```
 
 or
 
 ```
+git submodule update --init --recursive
 pixi install
 ```
 

@@ -1,3 +1,17 @@
+""" 3D Gaussian Splatting for Real-Time Radiance Field Rendering
+    - http://arxiv.org/abs/2308.04079
+Code reference: https://github.com/graphdeco-inria/gaussian-splatting
+
+Copyright (C) 2023, Inria
+GRAPHDECO research group, https://team.inria.fr/graphdeco
+All rights reserved.
+
+This software is free for non-commercial, research and evaluation use 
+under the terms of the LICENSE.md file.
+
+For inquiries contact  george.drettakis@inria.fr
+
+"""
 import torch
 from torch import nn
 import numpy as np

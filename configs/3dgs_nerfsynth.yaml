@@ -1,0 +1,66 @@
+model:
+  type: GaussianSplatting
+  sh_degree: 3
+  percent_dense: 0.01
+  densification_interval: 100
+  opacity_reset_interval: 3000
+  densify_from_iter: 500
+  densify_until_iter: 15000
+  densify_grad_threshold: 0.0002
+  lambda_dssim: 0.2
+dataset_type: NerfSynthetic
+collate_keys: [img, R, T, FovX, FovY]
+data_preprocessor:
+  type: GSDataPreprocessor
+  minmax: true
+data_root: data/nerf_synthetic/lego
+pcd_root: data/3dgs/nerf_synthetic
+train_dataloader:
+  batch_size: 1
+  sampler:
+    type: DistributedSampler
+    shuffle: true
+  collate_keys: ${collate_keys}
+  dataset:
+    type: ${dataset_type}
+    data_root: ${data_root}
+    pcd_root: ${pcd_root}
+    test_mode: false
+val_dataloader:
+  batch_size: 1
+  sampler:
+    type: DistributedEvalSampler
+    shuffle: false
+  collate_keys: ${collate_keys}
+  dataset:
+    type: ${dataset_type}
+    data_root: ${data_root}
+    pcd_root: ${pcd_root}
+    test_mode: true
+evaluator:
+  type: Evaluator
+  metrics:
+  - type: PeakSignalNoiseRatio
+  eval_mode_only: true
+train_epochs: 50
+optimizer:
+  type: GaussSplatOptimizer
+  base: Adam
+  lr: 0.0
+  eps: 1e-15
+  position_lr: 0.00016
+  feature_lr: 0.0025
+  opacity_lr: 0.05
+  scaling_lr: 0.005
+  rotation_lr: 0.001
+scheduler:
+  type: GaussSplatSched
+  decay_t: ${train_epochs}
+  lr_min: 0.0000016
+  param_group_name: xyz
+  t_in_epochs: true
+visualizer:
+  type: ImgVisualizer
+  use_tensorboard: true
+seed: 0
+use_amp: false

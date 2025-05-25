@@ -191,7 +191,8 @@ class VQVAE(nn.Module):
         beta=0.25,
         ema_decay=0.99,
         ema_epsilon=1e-5,
-        eini=-1
+        eini=-1,
+        **kwargs
     ):
         super().__init__()
         self.alpha = alpha

@@ -8,6 +8,7 @@ from torch import distributed as dist
 from omegaconf import OmegaConf
 from poketto import factory
 from poketto.utils import Tee, LossDict, RNGManager, create_logger
+import pdb
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -68,8 +69,9 @@ def save_checkpoint(state, save_path):
     elif isinstance(model, torch.nn.Module):
         model = model.state_dict()
     state['model'] = model
-    optimizer = state['optimizer'].state_dict()
-    state['optimizer'] = optimizer
+    optimizer = state.get('optimizer')
+    if optimizer is not None:
+        state['optimizer'] = optimizer.state_dict()
     scheduler = state.get('scheduler')
     if scheduler is not None:
         state['scheduler'] = scheduler.state_dict()
@@ -132,7 +134,6 @@ def train(
         )
     iters_to_accumulate = getattr(config, 'iters_to_accumulate', 1)
     setattr(config, 'iters_to_accumulate', iters_to_accumulate)
-    setattr(config, 'global_iter', start_epoch * len(train_dataloader))
 
     logger.info("Start training")
     start_time = time.time()
@@ -188,10 +189,14 @@ def train_one_epoch(
     for it, samples in enumerate(dataloader):
         samples = data_preprocessor(samples, training=True)
         data_time = time.time() - data_end
+        
+        global_it = it + epoch * L
+        # model.module.update_learning_rate(global_it)
+        # if (global_it + 1) % 1000 == 0:
+        #     model.module.oneupSHdegree()
 
-        is_accumulating = (it + 1) % iters_to_accumulate != 0 and it < L - 1
         require_backward_grad_sync = model.require_backward_grad_sync
-        if is_accumulating:
+        if (it + 1) % iters_to_accumulate != 0:
             model.require_backward_grad_sync = False
 
         with torch.amp.autocast('cuda', enabled=config.use_amp):
@@ -203,17 +208,19 @@ def train_one_epoch(
         grad_norm = 0
         if grad_scaler is not None:
             grad_scaler.scale(loss).backward()
-            if not is_accumulating:
+            # model.module.post_process(results, global_it)
+            if (it + 1) % iters_to_accumulate == 0:
                 grad_scaler.unscale_(optimizer)
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
-                grad_scaler.step(optimizer, config=config, data=results)
+                grad_scaler.step(optimizer, data=results, iteration=global_it)
                 grad_scaler.update()
                 optimizer.zero_grad()
         else:
             loss.backward()
-            if not is_accumulating:
+            # model.module.post_process(results, global_it)
+            if (it + 1) % iters_to_accumulate == 0:
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
-                optimizer.step(config=config, data=results)
+                optimizer.step(data=results, iteration=global_it)
                 optimizer.zero_grad()
         model.require_backward_grad_sync = require_backward_grad_sync 
         
@@ -234,9 +241,8 @@ def train_one_epoch(
                 f'  time: {batch_time:.2f} (data {data_time:.2f})  mem: {memory_used:.0f}MB'
             )
 
-        config.global_iter += 1
         if lr_scheduler is not None:
-            lr_scheduler.step_update(config.global_iter)
+            lr_scheduler.step_update(epoch * L + it + 1)
         
         end = time.time()
         data_end = time.time()
@@ -354,7 +360,7 @@ if __name__ == '__main__':
     logger.info(str(model))
     model.cuda()
 
-    logger.info(f'building optimizer {config.optimizer["type"]}')
+    logger.info(f'building optimizer None')
     optimizer = factory.new_optimizer(config.optimizer, model)
 
     scheduler = None

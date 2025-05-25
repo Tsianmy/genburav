@@ -30,7 +30,7 @@ train_dataloader:
   batch_size: 256
   num_workers: 4
   sampler:
-    type: DistributedEvalSampler
+    type: DistributedSampler
     shuffle: true
   collate_keys: ${collate_keys}
   dataset:
@@ -42,11 +42,9 @@ val_dataloader:
   batch_size: 1024
   num_workers: 4
   sampler:
-    type: DistributedSampler
+    type: DistributedEvalSampler
     shuffle: false
-  collate_keys:
-  - img
-  - gt_label
+  collate_keys: ${collate_keys}
   dataset:
     type: ${dataset_type}
     data_root: ${data_root}

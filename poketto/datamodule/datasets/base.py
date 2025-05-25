@@ -1,6 +1,6 @@
 import numpy as np
 from torch.utils.data import Dataset
-from .transforms import Compose
+from poketto.datamodule.transforms import Compose
 
 class BaseDataset(Dataset):
     def __init__(

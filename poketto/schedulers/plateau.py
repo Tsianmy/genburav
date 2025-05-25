@@ -24,6 +24,12 @@ class PlateauLR(PlateauLRScheduler):
         t_in_epochs=True,
         epoch_len=None
     ):
+        if t_in_epochs:
+            assert epoch_len is not None
+            patience_t *= epoch_len
+            cooldown_t *= epoch_len
+            t_in_epochs = False
+
         Scheduler.__init__(
             self,
             optimizer,
@@ -35,10 +41,6 @@ class PlateauLR(PlateauLRScheduler):
             noise_seed=noise_seed,
             initialize=initialize,
         )
-        if t_in_epochs:
-            assert epoch_len is not None
-            patience_t *= epoch_len
-            cooldown_t *= epoch_len
 
         self.lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer,

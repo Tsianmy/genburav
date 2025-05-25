@@ -16,6 +16,10 @@ class StepLR(StepLRScheduler):
         initialize=True,
         epoch_len=None
     ):
+        if t_in_epochs:
+            assert epoch_len is not None
+            decay_t *= epoch_len
+            t_in_epochs = False
         super().__init__(
             optimizer,
             decay_t,
@@ -29,9 +33,3 @@ class StepLR(StepLRScheduler):
             noise_seed,
             initialize
         )
-        if t_in_epochs:
-            assert epoch_len is not None
-            self.decay_t *= epoch_len
-
-    def _get_values(self, t: int, on_epoch: bool):
-        return self._get_lr(t)

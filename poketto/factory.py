@@ -6,8 +6,8 @@ from . import optimizers
 from . import schedulers
 from . import evaluation
 from . import visualization
-from . import datasets
-from .datasets import transforms, samplers, data_preprocessors, batch_augs
+from . import datamodule
+from .datamodule import datasets, transforms, samplers, data_preprocessors, batch_augs
 from .evaluation import metrics
 from .utils import glogger
 
@@ -19,9 +19,9 @@ def _new_obj(module, cfg_obj, *args, **kwargs):
 
     return obj
 
-def new_model(cfg_model):
+def new_model(cfg_model, **kwargs):
     pretrain = cfg_model.pop('pretrain', None)
-    model = _new_obj(models, cfg_model)
+    model = _new_obj(models, cfg_model, **kwargs)
     if pretrain is not None:
         with open(pretrain, 'rb') as f:
             state_dict = torch.load(f, map_location='cpu')
@@ -61,15 +61,15 @@ def new_dataloader(cfg_dataloader, sampler_seed=0):
         sampler = None
 
     collate_keys = cfg_dataloader.pop('collate_keys', [])
-    collate_fn = datasets.get_collate_fn(collate_keys)
+    collate_fn = datamodule.get_collate_fn(collate_keys)
     dataloader = torchdata.DataLoader(
         dataset, sampler=sampler, collate_fn=collate_fn, **cfg_dataloader)
     cfg_dataloader['dataset'] = cfg_dataset
 
     return dataloader
 
-def new_optimizer(cfg_optim, params):
-    optimizer = _new_obj(optimizers, cfg_optim, params)
+def new_optimizer(cfg_optim, model):
+    optimizer = _new_obj(optimizers, cfg_optim, model=model)
 
     return optimizer
 

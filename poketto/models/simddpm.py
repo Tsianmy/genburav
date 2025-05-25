@@ -31,7 +31,7 @@ class Decoder(nn.Module):
         return x
 
 class SimDDPM(nn.Module):
-    def __init__(self, in_channels, num_steps, num_units=128):
+    def __init__(self, in_channels, num_steps, num_units=128, **kwargs):
         super().__init__()
         self.num_steps = num_steps
         ### hyperparameters

@@ -473,6 +473,7 @@ class VAR_VQVAE(nn.Module):
         default_qresi_counts=0, # if is 0: automatically set to len(v_patch_nums)
         v_patch_nums=(1, 2, 3, 4, 5, 6, 8, 10, 13, 16), # number of patches for each scale, h_{1 to K} = w_{1 to K} = v_patch_nums[k]
         test_mode=True,
+        **kwargs
     ):
         super().__init__()
         self.test_mode = test_mode

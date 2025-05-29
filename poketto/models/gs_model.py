@@ -113,6 +113,7 @@ class GaussianSplatting(nn.Module):
         self.create_from_pcd(dataset.pcd)
         self.white_background = dataset.white_background
 
+        self.register_buffer('max_radii2D', torch.zeros((self.get_xyz.shape[0])))
         self.register_buffer('xyz_gradient_accum', torch.zeros((self.get_xyz.shape[0], 1)))
         self.register_buffer('denom', torch.zeros((self.get_xyz.shape[0], 1)))
 
@@ -157,28 +158,35 @@ class GaussianSplatting(nn.Module):
             self.active_sh_degree += 1
 
     def create_from_pcd(self, pcd):
-        fused_point_cloud = pcd.points.float()
-        fused_color = RGB2SH(pcd.colors.float())
-        features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float()#.cuda()
-        features[:, :3, 0 ] = fused_color
-        features[:, 3:, 1:] = 0.0
+        if pcd is not None:
+            fused_point_cloud = pcd.points.float()
+            fused_color = RGB2SH(pcd.colors.float())
+            features = torch.zeros((fused_color.shape[0], 3, (self.max_sh_degree + 1) ** 2)).float()#.cuda()
+            features[:, :3, 0 ] = fused_color
+            features[:, 3:, 1:] = 0.0
 
-        glogger.info(f'Number of points at initialisation: {fused_point_cloud.shape[0]}')
+            glogger.info(f'Number of points at initialisation: {fused_point_cloud.shape[0]}')
 
-        dist2 = torch.clamp_min(distCUDA2(pcd.points.float().cuda()).cpu(), 0.0000001)
-        scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 3)
-        rots = torch.zeros((fused_point_cloud.shape[0], 4))
-        rots[:, 0] = 1
+            dist2 = torch.clamp_min(distCUDA2(pcd.points.float().cuda()).cpu(), 0.0000001)
+            scales = torch.log(torch.sqrt(dist2))[...,None].repeat(1, 3)
+            rots = torch.zeros((fused_point_cloud.shape[0], 4))
+            rots[:, 0] = 1
 
-        opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float))
+            opacities = inverse_sigmoid(0.1 * torch.ones((fused_point_cloud.shape[0], 1), dtype=torch.float))
 
-        self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
-        self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
-        self._features_rest = nn.Parameter(features[:,:,1:].transpose(1, 2).contiguous().requires_grad_(True))
-        self._scaling = nn.Parameter(scales.requires_grad_(True))
-        self._rotation = nn.Parameter(rots.requires_grad_(True))
-        self._opacity = nn.Parameter(opacities.requires_grad_(True))
-        self.register_buffer('max_radii2D', torch.zeros((self.get_xyz.shape[0])))
+            self._xyz = nn.Parameter(fused_point_cloud.requires_grad_(True))
+            self._features_dc = nn.Parameter(features[:,:,0:1].transpose(1, 2).contiguous().requires_grad_(True))
+            self._features_rest = nn.Parameter(features[:,:,1:].transpose(1, 2).contiguous().requires_grad_(True))
+            self._scaling = nn.Parameter(scales.requires_grad_(True))
+            self._rotation = nn.Parameter(rots.requires_grad_(True))
+            self._opacity = nn.Parameter(opacities.requires_grad_(True))
+        else:
+            self._xyz = nn.Parameter(torch.empty(0))
+            self._features_dc = nn.Parameter(torch.empty(0))
+            self._features_rest = nn.Parameter(torch.empty(0))
+            self._scaling = nn.Parameter(torch.empty(0))
+            self._rotation = nn.Parameter(torch.empty(0))
+            self._opacity = nn.Parameter(torch.empty(0))
 
     def reset_opacity(self, param_operations):
         opacities_new = inverse_sigmoid(torch.min(self.get_opacity, torch.ones_like(self.get_opacity)*0.01))
@@ -223,7 +231,6 @@ class GaussianSplatting(nn.Module):
         return PlyData([el])
 
     def load_ply(self, plydata):
-        raise NotImplementedError
         xyz = np.stack((np.asarray(plydata.elements[0]["x"]),
                         np.asarray(plydata.elements[0]["y"]),
                         np.asarray(plydata.elements[0]["z"])),  axis=1)
@@ -262,16 +269,38 @@ class GaussianSplatting(nn.Module):
         self._opacity = nn.Parameter(torch.tensor(opacities, dtype=torch.float, device=device).requires_grad_(True))
         self._scaling = nn.Parameter(torch.tensor(scales, dtype=torch.float, device=device).requires_grad_(True))
         self._rotation = nn.Parameter(torch.tensor(rots, dtype=torch.float, device=device).requires_grad_(True))
-
-        self.active_sh_degree = self.max_sh_degree
+    
+    def optimizer_load_state_dict_pre_hook(self, optimizer, optimizer_state):
+        params = {
+            'xyz': self._xyz,
+            'f_dc': self._features_dc,
+            'f_rest': self._features_rest,
+            'opacity': self._opacity,
+            'scaling': self._scaling,
+            'rotation': self._rotation
+        }
+        optimizer.sync_model_params(params, [])
     
     def state_dict(self, *args, **kwargs):
         plydata = self.save_ply()
-        return {'plydata': plydata}
+        return {
+            'plydata': plydata,
+            'active_sh_degree': self.active_sh_degree,
+            'cameras_extent': self.cameras_extent.cpu(),
+            'max_radii2D': self.max_radii2D.cpu(),
+            'xyz_gradient_accum': self.xyz_gradient_accum.cpu(),
+            'denom': self.denom.cpu()
+        }
     
     def load_state_dict(self, state_dict, *args, **kwargs):
         plydata = state_dict['plydata']
         self.load_ply(plydata)
+        self.active_sh_degree = state_dict['active_sh_degree']
+        self.cameras_extent = state_dict['cameras_extent']
+        device = self.max_radii2D.device
+        self.max_radii2D = state_dict['max_radii2D'].to(device)
+        self.xyz_gradient_accum = state_dict['xyz_gradient_accum'].to(device)
+        self.denom = state_dict['denom'].to(device)
         return ([], [])
 
     def prune_points(self, param_operations, mask):

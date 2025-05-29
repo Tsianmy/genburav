@@ -71,4 +71,7 @@ def GaussSplatOptimizer(
     ]
     optimizer_instance: torch.optim.Optimizer = _base_cls(l, *args, **kwargs)
     optimizer_instance.register_step_pre_hook(model.optimizer_step_pre_hook)
+    optimizer_instance.register_load_state_dict_pre_hook(
+        model.optimizer_load_state_dict_pre_hook
+    )
     return optimizer_instance

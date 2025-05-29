@@ -119,12 +119,13 @@ if __name__ == '__main__':
     data_preprocessor = factory.new_data_preprocessor(config.data_preprocessor)
 
     logger.info(f'building model {config.model["type"]}')
-    model = factory.new_model(config.model)
-    logger.info(str(model))
-    model.cuda()
+    model = factory.new_model(config.model, dataset=val_dataloader.dataset)
 
     if config.checkpoint:
         load_model_checkpoint(config.checkpoint, config, model)
+
+    logger.info(str(model))
+    model.cuda()
 
     logger.info(f'building evaluator')
     evaluator = factory.new_evaluator(config.evaluator)

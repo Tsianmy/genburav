@@ -92,15 +92,20 @@ class RNGManager:
         glogger.info(f'Set Seed {seed}')
     
     def state_dict(self):
+        torch_state = dict(cpu=torch.get_rng_state())
+        if torch.cuda.is_available():
+            torch_state['cuda'] = torch.cuda.get_rng_state()
         return dict(
             seed=self.seed,
             random=random.getstate(),
             numpy=np.random.get_state(),
-            torch=torch.get_rng_state()
+            torch=torch_state
         )
     
     def load_state_dict(self, state):
         self.set_seed(state['seed'])
         random.setstate(state['random'])
         np.random.set_state(state['numpy'])
-        torch.set_rng_state(state['torch'])
+        torch.set_rng_state(state['torch']['cpu'])
+        if 'cuda' in state['torch']:
+            torch.cuda.set_rng_state_all([state['torch']['cuda']] * torch.cuda.device_count())

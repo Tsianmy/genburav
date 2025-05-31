@@ -360,7 +360,9 @@ if __name__ == '__main__':
     scheduler = None
     if getattr(config, 'scheduler', None) is not None:
         logger.info(f'building scheduler {config.scheduler["type"]}')
-        scheduler = factory.new_scheduler(config.scheduler, optimizer, len(train_dataloader))
+        scheduler = factory.new_scheduler(
+            config.scheduler, optimizer, epoch_len=len(train_dataloader)
+        )
 
     logger.info(f'building evaluator')
     evaluator = factory.new_evaluator(config.evaluator)

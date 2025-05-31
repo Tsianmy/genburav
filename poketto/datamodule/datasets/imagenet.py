@@ -1,6 +1,6 @@
 import os
 from torchvision import io as tvio, tv_tensors
-from .base import BaseDataset
+from .base_dataset import BaseDataset
 
 class ImageNet(BaseDataset):
     """

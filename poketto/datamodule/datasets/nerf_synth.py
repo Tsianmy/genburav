@@ -10,7 +10,7 @@ from torchvision import io as tvio, tv_tensors
 from poketto.ops.sh_utils import SH2RGB
 from poketto.ops.transforms3d import getWorld2View2, focal2fov, fov2focal
 from poketto.utils import glogger
-from .base import BaseDataset
+from .base_dataset import BaseDataset
 
 class BasicPointCloud(NamedTuple):
     points : torch.Tensor

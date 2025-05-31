@@ -3,7 +3,7 @@ import lmdb
 import torch
 import pickle as pkl
 from torchvision import io as tvio, tv_tensors
-from .base import BaseDataset
+from .base_dataset import BaseDataset
 
 class ImageNetLMDB(BaseDataset):
     """

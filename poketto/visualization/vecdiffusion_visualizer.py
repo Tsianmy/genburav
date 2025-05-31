@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from .base import BaseVisualizer
+from .base_visualizer import BaseVisualizer
 
 class VecDiffusionVisualizer(BaseVisualizer):
     def __init__(self, save_dir, use_tensorboard=False, tb_log_metrics=None):

@@ -1,6 +1,11 @@
 import torch
-from typing import List
+from typing import List, Dict
+from functools import partial
 from poketto.evaluation import metrics
+from poketto.utils import _new_instance
+
+Config = Dict
+new_metric = partial(_new_instance, metrics)
 
 def metric_wrapper(metric, interval):
     metric.valid = True
@@ -13,12 +18,14 @@ def metric_wrapper(metric, interval):
 class Evaluator:
     def __init__(
         self,
-        metrics: List[metrics.Metric],
+        metrics: List[Config],
         intervals=1,
         primary_metric=None,
         eval_mode_only=True
     ):
-        metrics = metrics if metrics is not None else []
+        metrics = [
+            new_metric(cfg_metric) for cfg_metric in metrics
+        ] if metrics is not None else []
         intervals = [intervals] * len(metrics) if isinstance(intervals, int) else intervals
         assert len(intervals) == len(metrics)
         self.metrics = [

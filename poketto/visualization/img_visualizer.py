@@ -3,7 +3,7 @@ import matplotlib
 import numpy as np
 import torch
 import torchvision
-from .base import BaseVisualizer
+from .base_visualizer import BaseVisualizer
 
 class ImgVisualizer(BaseVisualizer):
     def __init__(self, save_dir, use_tensorboard=False, tb_log_metrics=None, saving=False):

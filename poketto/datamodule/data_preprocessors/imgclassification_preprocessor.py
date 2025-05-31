@@ -1,6 +1,6 @@
 import torch
 from torch.nn import functional as F
-from .base import BaseDataPreprocessor
+from .base_preprocessor import BaseDataPreprocessor
 
 class ImgClsDataPreprocessor(BaseDataPreprocessor):
     def __init__(
@@ -9,7 +9,6 @@ class ImgClsDataPreprocessor(BaseDataPreprocessor):
         minmax=False,
         mean=None,
         std=None,
-        batch_aug=None,
         to_onehot=False,
         num_classes=None,
         label_smooth=None,
@@ -26,7 +25,6 @@ class ImgClsDataPreprocessor(BaseDataPreprocessor):
             self._normalize = True
         else:
             self._normalize = False
-        self.batch_aug = batch_aug
     
     def __call__(self, data: dict, training=False):
         img = self.to_cuda(data['img'])

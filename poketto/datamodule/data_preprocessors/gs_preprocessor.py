@@ -1,5 +1,5 @@
 from poketto.ops.transforms3d import getWorld2View2, getProjectionMatrix
-from .base import BaseDataPreprocessor
+from .base_preprocessor import BaseDataPreprocessor
 
 class GSDataPreprocessor(BaseDataPreprocessor):
     def __init__(

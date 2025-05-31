@@ -1,4 +1,4 @@
-from .base import BaseDataPreprocessor
+from .base_preprocessor import BaseDataPreprocessor
 
 class VecDataPreprocessor(BaseDataPreprocessor):
     def __call__(self, data: dict, **kwargs):

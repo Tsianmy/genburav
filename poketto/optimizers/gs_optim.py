@@ -1,8 +1,8 @@
 import torch
 
 def GaussSplatOptimizer(
-    base,
     model,
+    base,
     position_lr=0.00016,
     feature_lr=0.0025,
     opacity_lr=0.05,

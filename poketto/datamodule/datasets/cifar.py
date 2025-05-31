@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torchvision.datasets.utils import check_integrity
 from torchvision import tv_tensors
-from .base import BaseDataset
+from .base_dataset import BaseDataset
 
 class CIFAR10(BaseDataset):
     base_folder = 'cifar-10-batches-py'

@@ -1,6 +1,6 @@
 import torch
 from sklearn.datasets import make_swiss_roll
-from .base import BaseDataset
+from .base_dataset import BaseDataset
 
 class SwissRoll(BaseDataset):
     def __init__(self, **kwargs):

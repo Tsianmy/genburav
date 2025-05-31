@@ -4,17 +4,17 @@ from typing import Dict, Any, List, Optional
 
 class GaussSplatSched:
     def __init__(
-            self,
-            optimizer: torch.optim.Optimizer,
-            param_group_name: str,
-            decay_t: float,
-            param_group_field: str = 'lr',
-            lr_min: float = 0.,
-            cycle_mul: float = 1.,
-            cycle_t: int = 0,
-            t_in_epochs: bool = True,
-            epoch_len = None,
-            **kwargs,
+        self,
+        optimizer: torch.optim.Optimizer,
+        param_group_name: str,
+        decay_t: float,
+        param_group_field: str = 'lr',
+        lr_min: float = 0.,
+        cycle_mul: float = 1.,
+        cycle_t: int = 0,
+        t_in_epochs: bool = True,
+        epoch_len = None,
+        **kwargs,
     ) -> None:
         if t_in_epochs:
             assert epoch_len is not None

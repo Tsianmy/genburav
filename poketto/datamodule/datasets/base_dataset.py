@@ -1,6 +1,11 @@
 import numpy as np
 from torch.utils.data import Dataset
+from functools import partial
+from poketto.datamodule import transforms
 from poketto.datamodule.transforms import Compose
+from poketto.utils import _new_instance
+
+new_transform = partial(_new_instance, transforms)
 
 class BaseDataset(Dataset):
     def __init__(
@@ -16,6 +21,9 @@ class BaseDataset(Dataset):
         self.max_refetch = max_refetch
         self.data_list = []
 
+        transforms = [
+            new_transform(cfg_trans) for cfg_trans in transforms
+        ] if transforms is not None else []
         self.transforms = Compose(transforms)
 
         self.data_list = self.load_data_list()

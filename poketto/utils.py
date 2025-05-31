@@ -109,3 +109,11 @@ class RNGManager:
         torch.set_rng_state(state['torch']['cpu'])
         if 'cuda' in state['torch']:
             torch.cuda.set_rng_state_all([state['torch']['cuda']] * torch.cuda.device_count())
+
+def _new_instance(module, cfg_obj, *args, **kwargs):
+    type_obj = cfg_obj.pop('type')
+    cls_obj = getattr(module, type_obj)
+    obj = cls_obj(*args, **cfg_obj, **kwargs)
+    cfg_obj['type'] = type_obj
+
+    return obj

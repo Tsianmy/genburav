@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from .base import BaseVisualizer
+from .base_visualizer import BaseVisualizer
 from .utils import matplotlib_imshow
 
 class ImgClsVisualizer(BaseVisualizer):

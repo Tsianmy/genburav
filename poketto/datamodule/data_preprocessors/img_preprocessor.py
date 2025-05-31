@@ -1,5 +1,5 @@
 import torch
-from .base import BaseDataPreprocessor
+from .base_preprocessor import BaseDataPreprocessor
 
 class ImgDataPreprocessor(BaseDataPreprocessor):
     def __init__(
@@ -8,7 +8,6 @@ class ImgDataPreprocessor(BaseDataPreprocessor):
         minmax=False,
         mean=None,
         std=None,
-        batch_aug=None,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
@@ -19,7 +18,6 @@ class ImgDataPreprocessor(BaseDataPreprocessor):
             self._normalize = True
         else:
             self._normalize = False
-        self.batch_aug = batch_aug
     
     def __call__(self, data: dict, training=False):
         img = self.to_cuda(data['img'])
